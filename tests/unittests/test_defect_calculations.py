@@ -1,9 +1,8 @@
-from calculations.defect_calculations import calculate_length_correction_factor
+from core.calculations.defect_calculations import calculate_length_correction_factor
 
 
-def test_calc_length_correction_factor(snapshot):
-    outside_diameter = 812.8
-    wall_thickness = 19.10
-    defect_length = 200
-    q = calculate_length_correction_factor(defect_length, outside_diameter, wall_thickness)
+def test_calc_length_correction_factor(snapshot, example_1_pipe):
+    q = calculate_length_correction_factor(example_1_pipe.defect_length,
+                                           example_1_pipe.outside_diameter,
+                                           example_1_pipe.wall_thickness)
     assert q == snapshot
