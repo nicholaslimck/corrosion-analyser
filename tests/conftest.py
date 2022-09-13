@@ -3,7 +3,7 @@ from os import path
 
 import pytest
 
-from core.utils.pipes import Pipe
+from core.characteristics import Pipe
 
 FIXTURE_PATH = path.join(path.dirname(__file__), 'fixtures')
 
