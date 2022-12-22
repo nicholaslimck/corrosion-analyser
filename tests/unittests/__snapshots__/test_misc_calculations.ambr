@@ -1,3 +1,73 @@
+# name: test_calculate_partial_safety_factors[high-relative-0.0]
+  dict({
+    'epsilon_d': 0,
+    'gamma_d': 1.0,
+    'gamma_m': 0.8,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[high-relative-0.16]
+  dict({
+    'epsilon_d': 2.00248,
+    'gamma_d': 1.58304,
+    'gamma_m': 0.8,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[low-relative-0.0]
+  dict({
+    'epsilon_d': 0,
+    'gamma_d': 1.0,
+    'gamma_m': 0.9,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[low-relative-0.16]
+  dict({
+    'epsilon_d': 2.00248,
+    'gamma_d': 1.2,
+    'gamma_m': 0.9,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[medium-relative-0.0]
+  dict({
+    'epsilon_d': 0,
+    'gamma_d': 1.0,
+    'gamma_m': 0.85,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[medium-relative-0.16]
+  dict({
+    'epsilon_d': 2.00248,
+    'gamma_d': 1.38016,
+    'gamma_m': 0.85,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[very high-relative-0.04]
+  dict({
+    'epsilon_d': 0,
+    'gamma_d': 1.19072,
+    'gamma_m': 0.76,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[very high-relative-0.08]
+  dict({
+    'epsilon_d': 1.00312,
+    'gamma_d': 1.43488,
+    'gamma_m': 0.76,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[very high-relative-0.0]
+  dict({
+    'epsilon_d': 0,
+    'gamma_d': 0.0,
+    'gamma_m': 0.76,
+  })
+# ---
+# name: test_calculate_partial_safety_factors[very high-relative-0.16]
+  dict({
+    'epsilon_d': 2.00248,
+    'gamma_d': None,
+    'gamma_m': 0.76,
+  })
+# ---
 # name: test_calculate_std_dev
   0.07803041460723792
 # ---

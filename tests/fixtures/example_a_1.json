@@ -1,0 +1,71 @@
+{
+  "outside_diameter": {
+    "value": 812.8,
+    "unit": "mm"
+  },
+  "wall_thickness": {
+    "value": 19.10,
+    "unit": "mm"
+  },
+  "smts": {
+    "value": 530.9,
+    "unit": "N/mm^2"
+  },
+  "defect_length": {
+    "value": 200,
+    "unit": "mm"
+  },
+  "defect_relative_depth": {
+    "value": 0.25
+  },
+  "defect_elevation": {
+    "value": -100,
+    "unit": "m"
+  },
+  "elevation_reference": {
+    "value": 30,
+    "unit":  "m"
+  },
+  "seawater_density": {
+    "value": 1025,
+    "unit": "kg/m^3"
+  },
+  "containment_density": {
+    "value": 200,
+    "unit": "kg/m^3"
+  },
+  "design_pressure": {
+    "value": 150,
+    "unit": "bar"
+  },
+  "design_temperature": {
+    "value": 75,
+    "unit": "DegC"
+  },
+  "gamma_inc": {
+    "value": 1.1
+  },
+  "safety_class": "medium",
+  "alpha_u": {
+    "value": 0.96
+  },
+  "gamma_m": {
+    "value": 0.85
+  },
+  "gamma_d": {
+    "value": 1.28
+  },
+  "epsilon_d": {
+    "value": 1.0
+  },
+  "f_u_temp": {
+    "value": 15,
+    "unit": "N/mm^2"
+  },
+  "acc_rel": {
+    "value": 0.1
+  },
+  "conf": {
+    "value": 0.8
+  }
+}

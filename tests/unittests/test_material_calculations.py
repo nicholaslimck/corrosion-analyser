@@ -1,4 +1,4 @@
-from core.calculations.material_calculations import calculate_strength
+from backend.calculations.material_calculations import calculate_strength
 
 
 def test_calc_tensile_strength(snapshot):
