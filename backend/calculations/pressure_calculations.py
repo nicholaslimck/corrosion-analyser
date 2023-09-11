@@ -32,7 +32,7 @@ def calculate_pressure_resistance(gamma_m, gamma_d, t_nominal, defect_length, d_
     Calculates pressure resistance p_corr using the equation defined in Section 3.7.3
     p_corr = gamma_m * (2*t_nom*f_u)/(d_nom - t_nom)
     Args:
-        gamma_m:
+        gamma_m: Partial safety factor
         gamma_d:
         t_nominal:
         defect_length:

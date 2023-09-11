@@ -1,18 +1,28 @@
+import math
+
 from scipy.special import ndtri
 
 
-def calculate_std_dev(acc_rel, conf):
+def calculate_std_dev(acc, conf, t=None):
     """
     Calculates the standard deviation where Normal distribution is assumed.
     Args:
-        acc_rel: Relative accuracy
+        acc: Accuracy. Can be either relative or absolute.
         conf: Confidence Interval
+        t: Wall thickness
 
     Returns:
         std_dev: Standard deviation
     """
-    std_dev = acc_rel / calculate_inv_cumulative_dist(0.5 + conf / 2)
+    std_dev = acc / calculate_inv_cumulative_dist(0.5 + conf / 2)
     return std_dev
+    # if acc['unit'] == 'percent':
+    #     std_dev = acc['value'] / calculate_inv_cumulative_dist(0.5 + conf['value'] / 2)
+    #     return std_dev
+    # elif acc['unit']:
+    #     if not t:
+    #         raise ValueError('Cannot calculate absolute accuracy without wall thickness')
+    #     std_dev = (math.sqrt(2) * acc['value']) / (t['value'] * calculate_inv_cumulative_dist(0.5 + conf['value'] / 2))
 
 
 def calculate_inv_cumulative_dist(x):
@@ -29,9 +39,11 @@ def calculate_inv_cumulative_dist(x):
 def calculate_partial_safety_factors(safety_class, inspection_method, inspection_accuracy):
     """
     Returns the partial safety factor based off the safety class as stated in Table 3-2
+    Returns the partial safety factor and fractile value per Table 3-8
     Args:
         safety_class: Safety class, must be 'low', 'medium', 'high' or 'very high'
         inspection_method:
+        inspection_accuracy:
 
     Returns:
         partial_safety_factors: {"gamma_m", "gamma_d", "epsilon_d"}
@@ -40,6 +52,8 @@ def calculate_partial_safety_factors(safety_class, inspection_method, inspection
         raise ValueError(f"Invalid safety class provided: {safety_class}")
     if inspection_method not in ['relative', 'absolute']:
         raise ValueError(f"Invalid inspection method provided: {inspection_method}")
+    if inspection_accuracy > 0.16:
+        raise ValueError(f'Invalid inspection sizing accuracy (StD[d/t]) provided: {inspection_accuracy}')
 
     # Calculate gamma_m
     gamma_m = None
