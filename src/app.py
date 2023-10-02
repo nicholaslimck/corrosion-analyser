@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output
+from loguru import logger
 
 from utils import models, is_docker
 
@@ -277,7 +278,7 @@ def update_graph(example_selected):
     description = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                    for contents in description]
-    print(f"Time elapsed: {time.time() - start_time}")
+    logger.debug(f"Loaded {example_selected} | Render time: {time.time() - start_time:.2f}s")
     return fig, description, evaluation
 
 
