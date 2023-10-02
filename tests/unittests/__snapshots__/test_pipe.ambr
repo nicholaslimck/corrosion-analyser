@@ -1,4 +1,0 @@
-# serializer version: 1
-# name: test_pipe_example_a
-  Pipe(config={'outside_diameter': 812.8, 'wall_thickness': 19.1, 'smts': 530.9, 'defect_length': 200.0, 'defect_relative_depth': 0.25, 'defect_elevation': -100.0, 'elevation_reference': 30.0, 'seawater_density': 1025.0, 'containment_density': 200.0, 'design_pressure': 150.0, 'design_temperature': 75.0, 'gamma_inc': 1.1, 'alpha_u': 0.96, 'gamma_m': 0.85, 'gamma_d': 1.28, 'epsilon_d': 1.0, 'f_u_temp': 15.0, 'acc_rel': 0.1, 'conf': 0.8})
-# ---
