@@ -144,7 +144,7 @@ class Pipe:
         """
         target_pressure = self.environment.incidental_pressure - self.environment.external_pressure
 
-        limits = pd.DataFrame(columns=['defect_length', 'defect_depth'])
+        rows = []
         for defect_length in range(start_length, end_length+1, step):
             defect_depth = calculate_max_defect_depth(
                 gamma_m=self.safety_factors.gamma_m,
@@ -155,11 +155,6 @@ class Pipe:
                 f_u=self.material_properties.f_u,
                 p_corr=target_pressure
             )
-            # defect_depth = calculate_max_defect_depth_alt(
-            #     gamma_d=self.safety_factors.gamma_d,
-            #     epsilon_d=self.safety_factors.epsilon_d,
-            #     std_dev=self.measurement_factors.standard_deviation
-            # )
-            row = pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0])
-            limits = pd.concat([limits, row]).reset_index(drop=True)
+            rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
+        limits = pd.concat(rows).reset_index(drop=True)
         return limits

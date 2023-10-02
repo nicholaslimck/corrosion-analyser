@@ -1,33 +1,38 @@
+import time
+
 import dash
-from dash import dcc, html, callback
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
+from dash import dcc, html, callback
+from dash.dependencies import Input, Output
 
-from utils import models
+from utils import models, is_docker
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.MATERIA])
 
-app.layout = html.Div([
-    html.H1("Corrosion Analyser"),
-    html.Div(
-        children=[
-            html.Div(
-                children=['Select Example',
-                          dcc.RadioItems(
-                              options=['Example A-1', 'Example A-2', 'Example A-3'],
-                              value='Example A-1',
-                              id='example-selector')],
-                style={'display': 'inline-block', "padding": "0px 10px"}),
-            html.Div(id='example_description',
-                     style={'display': 'inline-block', "padding": "0px 10px", "vertical-align": "middle"})
-        ]
-    ),
-    html.H3('Remaining Life Assessment'),
-    dcc.Graph(id='sample_graph', figure={}),
-    html.Div(id='evaluation')
-])
+app.layout = html.Div(
+    [
+        html.H1("Corrosion Analyser"),
+        html.Div(
+            children=[
+                html.Div(
+                    children=['Select Example',
+                              dcc.RadioItems(
+                                  options=['Example A-1', 'Example A-2', 'Example A-3'],
+                                  value='Example A-1',
+                                  id='example-selector')],
+                    style={'display': 'inline-block'}),
+                html.Div(id='example_description',
+                         style={'display': 'inline-block', "padding": "0px 10px", "vertical-align": "middle"})
+            ]
+        ),
+        html.H3('Remaining Life Assessment'),
+        dcc.Graph(id='sample_graph', figure={}),
+        html.Div(id='evaluation')
+    ],
+    style={"padding": "10px 10px"}
+)
 
 
 def example_a_1():
@@ -230,12 +235,15 @@ def generate_plot(pipe):
     Input(component_id='example-selector', component_property='value')
 )
 def update_graph(example_selected):
+    start_time = time.time()
     if example_selected == 'Example A-1':
         pipe = example_a_1()
     elif example_selected == 'Example A-2':
         pipe = example_a_2()
     elif example_selected == 'Example A-3':
         pipe = example_a_3()
+    else:
+        raise ValueError('Unsupported selection')
     fig = generate_plot(pipe)
     description = [
         f"""Pipe Dimensions:
@@ -269,8 +277,12 @@ def update_graph(example_selected):
     description = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                    for contents in description]
+    print(f"Time elapsed: {time.time() - start_time}")
     return fig, description, evaluation
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    if is_docker():
+        app.run_server(host='0.0.0.0', debug=True)
+    else:
+        app.run_server(debug=True)
