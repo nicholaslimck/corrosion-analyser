@@ -6,11 +6,9 @@ from dataclasses import dataclass, field
 class Defect:
     length: float
     elevation: float
-    measurement_tolerance: float
-    measurement_confidence_interval: float
+    width: float = None
     depth: float = None
     relative_depth: float = None
-    d_t: float = field(init=False)
 
     length_correction_factor: float = field(init=False)
 

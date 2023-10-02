@@ -1,6 +1,5 @@
-from dataclasses import dataclass, field
-from backend.calculations.material_calculations import calculate_strength
-from backend.calculations.misc_calculations import calculate_std_dev
+from dataclasses import dataclass
+from src.utils.calculations.material_calculations import calculate_strength
 
 
 @dataclass

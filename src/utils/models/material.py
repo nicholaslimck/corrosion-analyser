@@ -8,6 +8,7 @@ class MaterialProperties:
 
     """
     alpha_u: float = 0.96  # Typically 0.96 as stated in Table 2-2
+    temperature: float = None
     smts: float = None
     smys: float = None
     f_u_temp: float = None
@@ -17,6 +18,7 @@ class MaterialProperties:
         if self.smys:
             self.f_y = calculate_strength(self.smys, self.f_y_temp, self.alpha_u)
         if self.smts:
+            self.f_u_temp = estimate_de_rating_yield_stress(self.temperature)
             self.f_u = calculate_strength(self.smts, self.f_u_temp, self.alpha_u)
 
 
@@ -35,3 +37,21 @@ def calculate_strength(sms, f_temp, alpha_u):
     """
     strength = (sms - f_temp) * alpha_u
     return strength
+
+
+def estimate_de_rating_yield_stress(temperature):
+    """
+    Estimate the de-rating yield stress as defined in Figure 2-3
+    Args:
+        temperature:
+
+    Returns:
+
+    """
+    if 50 < temperature <= 100:
+        f_u_temp = 0.6 * temperature - 30
+    elif 100 < temperature < 200:
+        f_u_temp = 0.4 * temperature - 10
+    else:
+        raise ValueError('Temperature must be between 50 and 200 C')
+    return f_u_temp

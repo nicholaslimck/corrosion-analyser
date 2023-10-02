@@ -1,5 +1,3 @@
-import backend.calculations.defect_calculations
-import backend.calculations as calculations
 import backend.models as models
 
 
@@ -16,15 +14,15 @@ if __name__ == '__main__':
 
     # Environment properties
     print('>> Enter environment properties:')
-    elevation_defect = float(input('Enter elevation of the defect: '))
     # elevation_reference = input('Enter elevation of the reference point: ')
-    # seawater_density = input('Enter seawater density: ')
+    seawater_density = float(input('Enter seawater density: '))
     # containment_density = input('Enter containment density: ')
 
     # Defect dimensions
     print('>> Enter defect dimensions:')
     defect_length = float(input('Enter defect length in mm: '))
     defect_depth = float(input('Enter defect relative depth: '))
+    defect_elevation = float(input('Enter elevation of the defect: '))
 
     # Measurement accuracy
     print('>> Enter measurement factors:')
@@ -48,13 +46,18 @@ if __name__ == '__main__':
 
     defect = models.Defect(
         length=defect_length,
-        elevation=elevation_defect,
+        elevation=defect_elevation,
         # measurement_tolerance=measurement_tolerance,
         # measurement_confidence_interval=measurement_confidence_level,
         relative_depth=defect_depth
     )
 
+    environment = models.Environment(
+        seawater_density=seawater_density,
+    )
+
     pipe.add_defect(defect)
+    pipe.set_environment(environment)
 
     # Calculate parameters
     print('-'*10, 'CALCULATED PROPERTIES', '-'*10)
@@ -78,3 +81,6 @@ if __name__ == '__main__':
     p_corr = pipe.calculate_pressure_resistance()
     print(f'p_corr = {p_corr:.2f} N/mm^2')
 
+    # Read pressures
+    p_le = pipe.environment.external_pressure
+    print(f'External pressure: {p_le} N/m^2')

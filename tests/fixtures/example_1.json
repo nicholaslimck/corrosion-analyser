@@ -61,5 +61,12 @@
   "f_u_temp": {
     "value": 15,
     "unit": "N/mm^2"
+  },
+  "acc": {
+    "value": 0.1,
+    "unit": "percent"
+  },
+  "conf": {
+    "value": 0.8
   }
 }

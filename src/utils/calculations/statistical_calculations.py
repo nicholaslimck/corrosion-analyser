@@ -3,26 +3,27 @@ import math
 from scipy.special import ndtri
 
 
-def calculate_std_dev(acc, conf, t=None):
+def calculate_std_dev(conf, acc_rel=None, acc_abs=None, t=None):
     """
     Calculates the standard deviation where Normal distribution is assumed.
     Args:
-        acc: Accuracy. Can be either relative or absolute.
         conf: Confidence Interval
+        acc_rel: Relative accuracy
+        acc_abs: Absolute accuracy
         t: Wall thickness
 
     Returns:
         std_dev: Standard deviation
     """
-    std_dev = acc / calculate_inv_cumulative_dist(0.5 + conf / 2)
+    if acc_rel:
+        std_dev = acc_rel / calculate_inv_cumulative_dist(0.5 + conf / 2)
+    elif acc_abs:
+        if not t:
+            raise ValueError('Cannot calculate absolute accuracy without wall thickness')
+        std_dev = (math.sqrt(2) * acc_abs) / (t * calculate_inv_cumulative_dist(0.5 + conf / 2))
+    else:
+        raise ValueError('Must define either relative or absolute accuracy')
     return std_dev
-    # if acc['unit'] == 'percent':
-    #     std_dev = acc['value'] / calculate_inv_cumulative_dist(0.5 + conf['value'] / 2)
-    #     return std_dev
-    # elif acc['unit']:
-    #     if not t:
-    #         raise ValueError('Cannot calculate absolute accuracy without wall thickness')
-    #     std_dev = (math.sqrt(2) * acc['value']) / (t['value'] * calculate_inv_cumulative_dist(0.5 + conf['value'] / 2))
 
 
 def calculate_inv_cumulative_dist(x):
@@ -48,6 +49,7 @@ def calculate_partial_safety_factors(safety_class, inspection_method, inspection
     Returns:
         partial_safety_factors: {"gamma_m", "gamma_d", "epsilon_d"}
     """
+    safety_class = safety_class.lower()
     if safety_class not in ['low', 'medium', 'high', 'very high']:
         raise ValueError(f"Invalid safety class provided: {safety_class}")
     if inspection_method not in ['relative', 'absolute']:

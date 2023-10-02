@@ -1,4 +1,4 @@
-from backend.calculations.defect_calculations import calculate_length_correction_factor
+from src.utils.calculations.defect_calculations import calculate_length_correction_factor
 
 
 def test_calc_length_correction_factor(pipe_a_1, defect_a_1, snapshot):

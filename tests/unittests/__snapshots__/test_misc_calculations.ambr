@@ -1,3 +1,4 @@
+# serializer version: 1
 # name: test_calculate_partial_safety_factors[high-relative-0.0]
   dict({
     'epsilon_d': 0,

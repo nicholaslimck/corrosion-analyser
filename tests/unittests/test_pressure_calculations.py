@@ -1,4 +1,4 @@
-from backend.calculations.pressure_calculations import calculate_pressure_resistance
+from src.utils.calculations.pressure_calculations import calculate_pressure_resistance
 
 
 def test_calculate_pressure_resistance(snapshot, example_a_1, pipe_a_1, defect_a_1):

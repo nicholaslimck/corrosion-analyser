@@ -1,4 +1,4 @@
-from backend.calculations.defect_calculations import calculate_length_correction_factor
+from ..calculations.defect_calculations import calculate_length_correction_factor
 
 
 def calculate_pressure_capacity(t_nominal, sigma_u, d_nominal, defect_depth, defect_length):
@@ -46,3 +46,39 @@ def calculate_pressure_resistance(gamma_m, gamma_d, t_nominal, defect_length, d_
     q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
     p_corr = gamma_m * ((2*t_nominal*f_u)/(d_nominal - t_nominal)) * ((1 - gamma_d*defect_depth)/(1-gamma_d*defect_depth/q))
     return p_corr
+
+
+def calculate_max_defect_depth(gamma_m, gamma_d, t_nominal, defect_length, d_nominal, f_u, p_corr):
+    """
+    Calculates the maximum defect depth
+    Args:
+        gamma_m:
+        gamma_d:
+        t_nominal:
+        defect_length:
+        d_nominal:
+        f_u:
+        p_corr:
+
+    Returns:
+
+    """
+
+    q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
+    defect_depth = q*(-d_nominal*p_corr + 2*f_u*gamma_m*t_nominal + p_corr*t_nominal)/(gamma_d*(-d_nominal*p_corr + 2*f_u*gamma_m*q*t_nominal + p_corr*t_nominal))
+    return defect_depth
+
+
+def calculate_max_defect_depth_alt(gamma_d, epsilon_d, std_dev):
+    """
+    Calculates the maximum defect depth based on Section 3.7.3.3
+    Args:
+        gamma_d:
+        epsilon_d:
+        std_dev:
+
+    Returns:
+
+    """
+    defect_depth = (1/gamma_d) - epsilon_d * std_dev
+    return defect_depth
