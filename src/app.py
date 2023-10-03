@@ -284,6 +284,6 @@ def update_graph(example_selected):
 
 if __name__ == '__main__':
     if is_docker():
-        app.run_server(host='0.0.0.0', debug=True)
+        app.run_server(host='0.0.0.0', debug=False)
     else:
         app.run_server(debug=True)
