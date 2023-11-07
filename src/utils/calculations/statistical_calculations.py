@@ -3,24 +3,24 @@ import math
 from scipy.special import ndtri
 
 
-def calculate_std_dev(conf, acc_rel=None, acc_abs=None, t=None):
+def calculate_std_dev(conf, acc, measurement_method: str, t=None):
     """
     Calculates the standard deviation where Normal distribution is assumed.
     Args:
         conf: Confidence Interval
-        acc_rel: Relative accuracy
-        acc_abs: Absolute accuracy
-        t: Wall thickness
+        acc: Relative/Absolute accuracy
+        measurement_method: Relative/Absolute
+        t: Wall thickness, only used with absolute measurements
 
     Returns:
         std_dev: Standard deviation
     """
-    if acc_rel:
-        std_dev = acc_rel / calculate_inv_cumulative_dist(0.5 + conf / 2)
-    elif acc_abs:
+    if measurement_method == 'relative':
+        std_dev = acc / calculate_inv_cumulative_dist(0.5 + conf / 2)
+    elif measurement_method == 'absolute':
         if not t:
             raise ValueError('Cannot calculate absolute accuracy without wall thickness')
-        std_dev = (math.sqrt(2) * acc_abs) / (t * calculate_inv_cumulative_dist(0.5 + conf / 2))
+        std_dev = (math.sqrt(2) * acc) / (t * calculate_inv_cumulative_dist(0.5 + conf / 2))
     else:
         raise ValueError('Must define either relative or absolute accuracy')
     return std_dev

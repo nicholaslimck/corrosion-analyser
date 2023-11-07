@@ -29,17 +29,21 @@ class DesignLimits:
 
 @dataclass
 class MeasurementFactors:
-    accuracy_relative: float
-    accuracy_absolute: float
+    accuracy: float
+    measurement_method: str
+    # accuracy_relative: float
+    # accuracy_absolute: float
     confidence_level: float
     wall_thickness: float
     standard_deviation: float = field(init=False)
 
     def __post_init__(self):
         self.standard_deviation = calculate_std_dev(
-            acc_rel=self.accuracy_relative,
-            acc_abs=self.accuracy_absolute,
             conf=self.confidence_level,
+            acc=self.accuracy,
+            measurement_method=self.measurement_method,
+            # acc_rel=self.accuracy_relative,
+            # acc_abs=self.accuracy_absolute,
             t=self.wall_thickness
         )
 
@@ -94,8 +98,8 @@ class Pipe:
         )
         self.design_limits = DesignLimits(self.config['design_pressure'], self.config['design_temperature'], self.config['incidental_to_design_pressure_ratio'])
         self.measurement_factors = MeasurementFactors(
-            accuracy_relative=self.config.get('accuracy_relative'),
-            accuracy_absolute=self.config.get('accuracy_absolute'),
+            accuracy=self.config.get('accuracy'),
+            measurement_method=self.config.get('measurement_method'),
             confidence_level=self.config['confidence_level'],
             wall_thickness=self.dimensions.wall_thickness
         )

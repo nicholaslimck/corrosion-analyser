@@ -4,9 +4,10 @@ from src.utils.calculations.statistical_calculations import calculate_std_dev, c
 
 
 def test_calculate_std_dev(snapshot):
-    acc_rel = 0.1
+    acc = 0.1
     conf = 0.8
-    assert calculate_std_dev(acc_rel=acc_rel, conf=conf) == snapshot
+    measurement_method = 'relative'
+    assert calculate_std_dev(acc=acc, conf=conf, measurement_method=measurement_method) == snapshot
 
 
 @pytest.mark.parametrize('safety_class,inspection_method,inspection_accuracy', [
