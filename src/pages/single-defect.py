@@ -8,7 +8,7 @@ from dash import dcc, html, callback
 from dash.dependencies import Input, Output
 from loguru import logger
 
-from src.utils import models
+from utils import models
 
 dash.register_page(__name__)
 

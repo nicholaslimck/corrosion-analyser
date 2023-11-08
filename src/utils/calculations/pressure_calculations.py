@@ -1,4 +1,7 @@
-from ..calculations.defect_calculations import calculate_length_correction_factor
+try:
+    from utils.calculations.defect_calculations import calculate_length_correction_factor
+except ImportError:
+    from ..calculations.defect_calculations import calculate_length_correction_factor
 
 
 def calculate_pressure_capacity(t_nominal, sigma_u, d_nominal, defect_depth, defect_length):
