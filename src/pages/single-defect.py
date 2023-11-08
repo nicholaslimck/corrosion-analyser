@@ -17,7 +17,6 @@ def layout():
     def generate_input(name, field_type):
         return dbc.Input(id=f'input_{name.lower().replace(" ", "_")}', type=field_type, debounce=1, placeholder=name)
 
-
     pipe_dimensions = dbc.Col([
         html.H4("Pipe Dimensions"),
         dbc.Form([
@@ -60,9 +59,9 @@ def layout():
             dbc.Row([dbc.Col(generate_input('Incidental to Design Pressure Ratio', 'number'))]),
             dbc.Row([dbc.Col(dcc.Dropdown(id='safety_class', options=[
                 'low', 'medium', 'high'], placeholder='Safety Class'))
-            ])
+                     ], style={'padding': '10px 0px'})
         ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
+    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top', 'width': 250})
 
     measurement_parameters = dbc.Col([
         html.H4("Measurement Parameters"),
@@ -71,7 +70,7 @@ def layout():
             dbc.Row([dbc.Col(generate_input('Confidence Level', 'number'))]),
             dbc.Row([dbc.Col(dcc.Dropdown(id='measurement_method', options=[
                 'relative', 'absolute'], placeholder='Measurement Method'))
-            ])
+                     ], style={'padding': '10px 0px'})
         ])
     ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
 
@@ -225,7 +224,6 @@ def update_graph(trigger_update,
                  containment_density,
                  elevation_reference):
     start_time = time.time()
-    print(pipe_outer_diameter, pipe_wall_thickness, smts)
     if not trigger_update:
         pipe = example_a_1()
     else:
@@ -250,9 +248,9 @@ def update_graph(trigger_update,
         }
 
         environment_config = {
-            'seawater_density': 1025,
-            'containment_density': 200,
-            'elevation_reference': 30
+            'seawater_density': seawater_density,
+            'containment_density': containment_density,
+            'elevation_reference': elevation_reference
         }
 
         pipe = init_pipe(pipe_config, defect_config, environment_config)
@@ -269,7 +267,6 @@ def update_graph(trigger_update,
                  f"Corrosion is {'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}."
     analysis = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
-                   for contents in analysis]
-    logger.debug(f"Loaded {trigger_update} | Render time: {time.time() - start_time:.2f}s")
+                for contents in analysis]
+    logger.debug(f"Single-Defect Scenario loaded | Render time: {time.time() - start_time:.2f}s")
     return fig, analysis, evaluation
-    # return fig, evaluation
