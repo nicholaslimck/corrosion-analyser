@@ -30,6 +30,9 @@ app.layout = html.Div([
 
 if __name__ == '__main__':
     if is_docker():
+        # If run within a docker container, disable debug functions for performance and set IP Address to be
+        # accessible from outside the container
         app.run_server(host='0.0.0.0', debug=False)
     else:
+        # If run directly, enable debug functions
         app.run_server(debug=True)

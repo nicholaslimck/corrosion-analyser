@@ -151,8 +151,8 @@ def example_a_2():
 
 def example_a_3():
     # Defect dimensions
-    defect_length = 200
-    defect_width = 100
+    defect_length = 200.0
+    defect_width = 100.0
     defect_depth = 0.62
     defect_elevation = -200
 
@@ -173,6 +173,7 @@ def example_a_3():
 
     defect = models.Defect(
         length=defect_length,
+        width=defect_width,
         elevation=defect_elevation,
         relative_depth=defect_depth
     )
@@ -184,6 +185,7 @@ def example_a_3():
     )
 
     pipe.add_defect(defect)
+    pipe.add_loading('compressive', 200)
     pipe.set_environment(environment)
 
     # Calculate length correction factor
@@ -210,7 +212,7 @@ def generate_plot(pipe):
                   },
                   range_y=[0, 1.0])
 
-    marker_df = pd.DataFrame({'defect_length': pipe.defect.length, 'defect_depth': pipe.defect.depth}, index=[0])
+    marker_df = pd.DataFrame({'defect_length': pipe.defect.length, 'defect_depth': pipe.defect.relative_depth}, index=[0])
 
     if pipe.properties.effective_pressure < pipe.properties.pressure_resistance:
         colour = 'blue'
@@ -258,7 +260,7 @@ def update_graph(example_selected):
         """,
         f"""Defect Properties:
             Length:                 {pipe.defect.length}
-            Depth:                  {pipe.defect.depth:.2f}
+            Depth:                  {pipe.defect.relative_depth:.2f}
         """,
         f"""Environment Properties:
             Seawater Density:       {pipe.environment.seawater_density}
@@ -267,11 +269,17 @@ def update_graph(example_selected):
             Elevation:              {pipe.environment.elevation}
             External Pressure:      {pipe.environment.external_pressure:.2f}
             Incidental Pressure:    {pipe.environment.incidental_pressure:.2f}
-        """,
-        f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
-        Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
         """
     ]
+    if hasattr(pipe, 'loading'):
+        description.append(
+            f"""Loading:         {pipe.loading.loading_type}
+            Loading Stress:        {pipe.loading.loading_stress:.2f}
+            """)
+    description.append(
+        f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
+        Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
+        """)
     evaluation = f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa " \
                  f"{'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} " \
                  f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa. " \

@@ -3,8 +3,11 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from . import MaterialProperties, Defect, Environment
-from ..calculations.statistical_calculations import calculate_std_dev, calculate_partial_safety_factors
-from ..calculations.pressure_calculations import calculate_pressure_resistance, calculate_max_defect_depth, calculate_max_defect_depth_alt
+from ..calculations.statistical_calculations import calculate_std_dev, calculate_partial_safety_factors, calculate_usage_factors
+from ..calculations.pressure_calculations import (calculate_pressure_resistance_long_defect,
+                                                  calculate_pressure_resistance_long_defect_w_compressive,
+                                                  calculate_max_defect_depth, calculate_max_defect_depth_official)
+from ..calculations.stress_calculations import calculate_nominal_longitudinal_stress
 
 
 @dataclass
@@ -65,9 +68,23 @@ class SafetyFactors:
 
 
 @dataclass
+class UsageFactors:
+    safety_class: str
+    phi: float = field(init=False)
+
+    def __post_init__(self):
+        self.phi = calculate_usage_factors(self.safety_class)
+
+
+@dataclass
 class Loading:
     loading_type: str
     loading_stress: float
+    usage_factor: float
+    sigma_l: float = field(init=False)
+
+    def __post_init__(self):
+        self.sigma_l = self.loading_stress if self.loading_type != 'compressive' else -1 * self.loading_stress
 
 
 @dataclass
@@ -85,6 +102,7 @@ class Pipe:
     measurement_factors: MeasurementFactors = field(init=False)
     safety_factors: SafetyFactors = field(init=False)
     defect: Defect = field(init=False)
+    loading: Loading = field(init=False)
     environment: Environment = field(init=False)
     properties: Properties = field(default_factory=Properties)
 
@@ -111,12 +129,16 @@ class Pipe:
 
     def add_defect(self, defect):
         self.defect = defect
-        self.defect.calculate_d_t(
+        self.defect.calculate_d_t_adjusted(
             epsilon_d=self.safety_factors.epsilon_d,
             stdev=self.measurement_factors.standard_deviation
         )
         self.defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                       t=self.dimensions.wall_thickness)
+
+    def add_loading(self, loading_type, magnitude):
+        usage_factor = calculate_usage_factors(self.safety_factors.safety_class)
+        self.loading = Loading(loading_type, magnitude, usage_factor)
 
     def set_environment(self, environment):
         self.environment = environment
@@ -126,16 +148,33 @@ class Pipe:
             self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def calculate_pressure_resistance(self):
-        p_corr = calculate_pressure_resistance(
-            gamma_m=self.safety_factors.gamma_m,
-            gamma_d=self.safety_factors.gamma_d,
-            t_nominal=self.dimensions.wall_thickness,
-            defect_length=self.defect.length,
-            d_nominal=self.dimensions.outside_diameter,
-            defect_depth=self.defect.depth,
-            f_u=self.material_properties.f_u
-        )
-        self.properties.pressure_resistance = p_corr
+        if hasattr(self, 'loading'):
+            p_corr_comp = calculate_pressure_resistance_long_defect_w_compressive(
+                gamma_m=self.safety_factors.gamma_m,
+                gamma_d=self.safety_factors.gamma_d,
+                t_nominal=self.dimensions.wall_thickness,
+                defect_length=self.defect.length,
+                defect_relative_depth_measured=self.defect.relative_depth,
+                defect_relative_depth_normalised=self.defect.relative_depth_with_uncertainty,
+                defect_width=self.defect.width,
+                d_nominal=self.dimensions.outside_diameter,
+                f_u=self.material_properties.f_u,
+                sigma_l=self.loading.sigma_l,
+                phi=self.loading.usage_factor
+            )
+            self.properties.pressure_resistance = p_corr_comp
+        else:
+            p_corr = calculate_pressure_resistance_long_defect(
+                gamma_m=self.safety_factors.gamma_m,
+                gamma_d=self.safety_factors.gamma_d,
+                t_nominal=self.dimensions.wall_thickness,
+                defect_length=self.defect.length,
+                d_nominal=self.dimensions.outside_diameter,
+                relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
+                f_u=self.material_properties.f_u
+            )
+
+            self.properties.pressure_resistance = p_corr
 
     def calculate_effective_pressure(self):
         self.properties.effective_pressure = self.environment.incidental_pressure - self.environment.external_pressure
@@ -144,21 +183,29 @@ class Pipe:
         """
         Calculate the maximum acceptable relative defect depth for a given defect length
         Returns:
-
+            limits: pd.DataFrame representation of the maximum acceptable relative defect depth at each length
         """
         target_pressure = self.environment.incidental_pressure - self.environment.external_pressure
 
         rows = []
         for defect_length in range(start_length, end_length+1, step):
-            defect_depth = calculate_max_defect_depth(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                t_nominal=self.dimensions.wall_thickness,
-                defect_length=defect_length,
-                d_nominal=self.dimensions.outside_diameter,
-                f_u=self.material_properties.f_u,
-                p_corr=target_pressure
-            )
+            if not hasattr(self, 'loading'):
+                defect_depth = calculate_max_defect_depth(
+                    gamma_m=self.safety_factors.gamma_m,
+                    gamma_d=self.safety_factors.gamma_d,
+                    t_nominal=self.dimensions.wall_thickness,
+                    defect_length=defect_length,
+                    d_nominal=self.dimensions.outside_diameter,
+                    f_u=self.material_properties.f_u,
+                    p_corr=target_pressure
+                )
+            else:
+                defect_depth = 0.85
+            # defect_depth = calculate_max_defect_depth_alt(
+            #     gamma_d=self.safety_factors.gamma_d,
+            #     epsilon_d=self.safety_factors.epsilon_d,
+            #     std_dev=self.measurement_factors.standard_deviation
+            # )
             rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
         limits = pd.concat(rows).reset_index(drop=True)
         return limits

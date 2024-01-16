@@ -4,11 +4,12 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Defect:
-    length: float
-    elevation: float
-    width: float = None
-    depth: float = None
-    relative_depth: float = None
+    length: float                                   # Defect length in mm
+    elevation: float                                # Defect elevation in m
+    width: float = None                             # Defect width in mm
+    depth: float = None                             # Defect depth in mm
+    relative_depth: float = None                    # Relative defect depth as measured
+    relative_depth_with_uncertainty: float = None   # Relative defect depth accounting for measurement uncertainty
 
     length_correction_factor: float = field(init=False)
 
@@ -16,7 +17,7 @@ class Defect:
         if not (self.depth or self.relative_depth):
             raise ValueError('Either depth or relative depth must be provided')
 
-    def calculate_d_t(self, epsilon_d, stdev):
+    def calculate_d_t_adjusted(self, epsilon_d, stdev):
         """
         Calculate (d/t)*
         Args:
@@ -26,14 +27,14 @@ class Defect:
         Returns:
 
         """
-        self.depth = self.relative_depth + epsilon_d * stdev
+        self.relative_depth_with_uncertainty = self.relative_depth + epsilon_d * stdev
 
     def generate_length_correction_factor(self, d_nominal, t):
         """
         Generate the length correction factor of the defect
         Args:
-            d_nominal: Nominal outside diameter in mm
-            t: Nominal pipe wall thickness in mm
+            d_nominal: Nominal outside diameter (mm)
+            t: Nominal pipe wall thickness (mm)
 
         Returns:
 

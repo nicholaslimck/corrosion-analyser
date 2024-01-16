@@ -115,3 +115,14 @@ def calculate_partial_safety_factors(safety_class, inspection_method, inspection
     }
 
     return partial_safety_factors
+
+
+def calculate_usage_factors(safety_class: str) -> float:
+    if safety_class == 'low':
+        return 0.9
+    elif safety_class == 'medium':
+        return 0.85
+    elif safety_class == 'high':
+        return 0.8
+    elif safety_class == 'very_high':
+        return 0.75

@@ -69,7 +69,7 @@ if __name__ == '__main__':
     print(f'Length correction factor Q = {defect.length_correction_factor:2f}')
 
     # Calculate depth
-    defect.calculate_d_t(
+    defect.calculate_d_t_adjusted(
         epsilon_d=1.0, stdev=0.08
     )
     print(f'Absolute depth (d/t)* = {defect.depth}')
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     print(f'f_u = {pipe.material_properties.f_u:.2f} N/mm^2')
 
     # Calculate p_corr
-    p_corr = pipe.calculate_pressure_resistance()
+    p_corr = pipe.calculate_pressure_resistance_long_defect()
     print(f'p_corr = {p_corr:.2f} N/mm^2')
 
     # Read pressures

@@ -67,7 +67,7 @@ def example_a_1():
     )
 
     # Calculate p_corr
-    pipe.calculate_pressure_resistance()
+    pipe.calculate_pressure_resistance_long_defect()
     pipe.calculate_effective_pressure()
     return pipe
 
@@ -136,7 +136,7 @@ def example_a_2():
     )
 
     # Calculate p_corr
-    pipe.calculate_pressure_resistance()
+    pipe.calculate_pressure_resistance_long_defect()
     pipe.calculate_effective_pressure()
     return pipe
 
@@ -185,7 +185,7 @@ def example_a_3():
     )
 
     # Calculate p_corr
-    pipe.calculate_pressure_resistance()
+    pipe.calculate_pressure_resistance_long_defect()
     pipe.calculate_effective_pressure()
     return pipe
 

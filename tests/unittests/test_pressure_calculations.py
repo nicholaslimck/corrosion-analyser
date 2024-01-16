@@ -1,4 +1,4 @@
-from src.utils.calculations.pressure_calculations import calculate_pressure_resistance
+from src.utils.calculations.pressure_calculations import calculate_pressure_resistance_long_defect
 
 
 def test_calculate_pressure_resistance(snapshot, example_a_1):
@@ -11,7 +11,7 @@ def test_calculate_pressure_resistance(snapshot, example_a_1):
     f_u_temp = (example_a_1['smts']['value'] - example_a_1['f_u_temp']['value']) * 0.96
 
     measured_defect_depth = 0.25 + 1.0 * 0.08
-    p_corr = calculate_pressure_resistance(
+    p_corr = calculate_pressure_resistance_long_defect(
         gamma_m,
         gamma_d,
         wall_thickness,
