@@ -1,3 +1,5 @@
+import math
+
 try:
     from utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_circumferential_corroded_length_ratio)
@@ -117,7 +119,7 @@ def calculate_max_defect_depth(gamma_m, gamma_d, t_nominal, defect_length, d_nom
     return defect_depth
 
 
-def calculate_max_defect_depth_official(gamma_d, epsilon_d, std_dev):
+def calculate_maximum_defect_depth(gamma_d, epsilon_d, std_dev):
     """
     Calculates the maximum defect depth based on Section 3.7.3.3
     Args:
@@ -130,3 +132,26 @@ def calculate_max_defect_depth_official(gamma_d, epsilon_d, std_dev):
     """
     defect_depth = (1/gamma_d) - epsilon_d * std_dev
     return defect_depth
+
+
+def calculate_maximum_defect_length(d, t, gamma_d, gamma_m, f_u, dt_star, p_li, p_le):
+    """
+    Calculates the maximum defect length based on Section 3.7.3.2
+    Args:
+        d:
+        t:
+        gamma_d:
+        gamma_m:
+        f_u:
+        dt_star:
+        p_li:
+        p_le:
+
+    Returns:
+
+    """
+    p_0 = gamma_m * (2 * t * f_u) / (d - t)
+    l_acc = math.sqrt((d*t/0.31) * (((gamma_d * dt_star) /
+                                     (1 - (p_0 / (p_li - p_le)) * (1 - (gamma_d * dt_star))))**2 - 1))
+
+    return l_acc

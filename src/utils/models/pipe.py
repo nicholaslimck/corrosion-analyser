@@ -6,7 +6,7 @@ from . import MaterialProperties, Defect, Environment
 from ..calculations.statistical_calculations import calculate_std_dev, calculate_partial_safety_factors, calculate_usage_factors
 from ..calculations.pressure_calculations import (calculate_pressure_resistance_long_defect,
                                                   calculate_pressure_resistance_long_defect_w_compressive,
-                                                  calculate_max_defect_depth, calculate_max_defect_depth_official)
+                                                  calculate_max_defect_depth, calculate_maximum_defect_depth)
 from ..calculations.stress_calculations import calculate_nominal_longitudinal_stress
 
 
@@ -129,6 +129,7 @@ class Pipe:
 
     def add_defect(self, defect):
         self.defect = defect
+        self.defect.complete_dimensions(self.dimensions.wall_thickness)
         self.defect.calculate_d_t_adjusted(
             epsilon_d=self.safety_factors.epsilon_d,
             stdev=self.measurement_factors.standard_deviation
@@ -201,7 +202,7 @@ class Pipe:
                 )
             else:
                 defect_depth = 0.85
-            # defect_depth = calculate_max_defect_depth_alt(
+            # defect_depth = calculate_maximum_defect_depth(
             #     gamma_d=self.safety_factors.gamma_d,
             #     epsilon_d=self.safety_factors.epsilon_d,
             #     std_dev=self.measurement_factors.standard_deviation

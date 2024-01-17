@@ -17,6 +17,12 @@ class Defect:
         if not (self.depth or self.relative_depth):
             raise ValueError('Either depth or relative depth must be provided')
 
+    def complete_dimensions(self, wall_thickness):
+        if not self.depth:
+            self.depth = self.relative_depth * wall_thickness
+        if not self.relative_depth:
+            self.relative_depth = self.depth / wall_thickness
+
     def calculate_d_t_adjusted(self, epsilon_d, stdev):
         """
         Calculate (d/t)*
