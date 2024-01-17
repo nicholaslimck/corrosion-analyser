@@ -12,6 +12,7 @@ scipy = "^1.9.1"
 dash-bootstrap-components = "^1.5.0"
 sympy = "^1.12"
 loguru = "^0.7.2"
+dash-ag-grid = "^2.4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.4.0"
