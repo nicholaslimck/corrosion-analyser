@@ -1,14 +1,8 @@
-import time
-
 import dash
 import dash_bootstrap_components as dbc
-import pandas as pd
-import plotly.express as px
-from dash import dcc, html, callback
-from dash.dependencies import Input, Output
-from loguru import logger
+from dash import html
 
-from utils import models, is_docker
+from src.utils import is_docker
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.MATERIA], use_pages=True)
 

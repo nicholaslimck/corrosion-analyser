@@ -13,8 +13,8 @@ COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
 
-COPY src .
+COPY src ./src
 
 RUN poetry install --without dev
 
-ENTRYPOINT ["poetry", "run", "python", "app.py"]
+ENTRYPOINT ["poetry", "run", "python", "-m", "src.app"]
