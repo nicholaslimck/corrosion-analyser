@@ -127,7 +127,7 @@ class Pipe:
             self.measurement_factors.standard_deviation
         )
 
-    def add_defect(self, defect):
+    def add_defect(self, defect: Defect):
         self.defect = defect
         self.defect.complete_dimensions(self.dimensions.wall_thickness)
         self.defect.calculate_d_t_adjusted(

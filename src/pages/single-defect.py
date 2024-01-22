@@ -1,14 +1,13 @@
 import time
 
 import dash
-import pandas as pd
-import plotly.express as px
 import dash_bootstrap_components as dbc
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output
 from loguru import logger
 
-from utils import models
+from src.utils import models
+from src.utils.graphing import single_defect
 
 dash.register_page(__name__)
 
@@ -152,37 +151,6 @@ def init_pipe(pipe_config, defect_config, environment_config):
     return pipe
 
 
-def generate_plot(pipe):
-    limits = pipe.calculate_acceptable_limits()
-
-    # Plot figure
-    fig = px.line(limits, x='defect_length', y='defect_depth',
-                  color_discrete_sequence=['red'],
-                  labels={
-                      'defect_length': 'Corrosion Defect Length (mm)',
-                      'defect_depth': 'Allowable Measured Relative Depth (d/t)'
-                  },
-                  range_y=[0, 1.0])
-
-    marker_df = pd.DataFrame({'defect_length': pipe.defect.length, 'defect_depth': pipe.defect.depth}, index=[0])
-
-    if pipe.properties.effective_pressure < pipe.properties.pressure_resistance:
-        colour = 'blue'
-    else:
-        colour = 'red'
-
-    marker = px.scatter(marker_df, x='defect_length', y='defect_depth', color_discrete_sequence=[colour])
-
-    fig.add_trace(marker.data[0])
-
-    fig['data'][0]['showlegend'] = True
-    fig['data'][1]['showlegend'] = True
-    fig['data'][0]['name'] = 'Calculated Limits'
-    fig['data'][1]['name'] = 'Actual Dimensions'
-
-    return fig
-
-
 # Add controls to build the interaction
 @callback(
     Output(component_id='single_defect_graph', component_property='figure'),
@@ -255,7 +223,7 @@ def update_graph(trigger_update,
 
         pipe = init_pipe(pipe_config, defect_config, environment_config)
 
-    fig = generate_plot(pipe)
+    fig = single_defect.generate_plot(pipe)
     analysis = [
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
