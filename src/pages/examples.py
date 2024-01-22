@@ -7,7 +7,7 @@ from dash.dependencies import Input, Output
 from loguru import logger
 
 from src.utils import models
-from src.utils.graphing.single_defect import generate_plot, generate_pipe_plot
+from src.utils.graphing.single_defect import generate_defect_depth_plot, generate_cross_section_plot
 
 dash.register_page(__name__)
 
@@ -31,8 +31,8 @@ def layout():
             ),
             html.H3('Remaining Life Assessment'),
             dbc.Row([
-                dbc.Col(dcc.Graph(id='example_defect_graph', figure={}, style={'display': 'inline-block'}), width=9),
-                dbc.Col(dcc.Graph(id='example_pipe_graph', figure={}, style={'display': 'inline-block'}), width=3)
+                dbc.Col(dcc.Graph(id='example_defect_graph', figure={}, style={'display': 'inline-block', 'width': '75vw'})),
+                dbc.Col(dcc.Graph(id='example_pipe_graph', figure={}, style={'display': 'inline-block', 'width': '15vw'}))
             ]),
             html.Div(id='example_evaluation'),
             dash_table.DataTable(id='pipe_properties_table')
@@ -222,8 +222,8 @@ def update_graph(example_selected):
         pipe = example_a_3()
     else:
         raise ValueError('Unsupported selection')
-    fig_defect_assessment = generate_plot(pipe)
-    fig_pipe = generate_pipe_plot(pipe)
+    fig_defect_assessment = generate_defect_depth_plot(pipe)
+    fig_pipe = generate_cross_section_plot(pipe)
     description = [
         f"""Pipe Dimensions:
             Outside Diameter:      {pipe.dimensions.outside_diameter} mm

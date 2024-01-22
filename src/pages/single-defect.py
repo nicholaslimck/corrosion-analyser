@@ -223,7 +223,7 @@ def update_graph(trigger_update,
 
         pipe = init_pipe(pipe_config, defect_config, environment_config)
 
-    fig = single_defect.generate_plot(pipe)
+    fig = single_defect.generate_defect_depth_plot(pipe)
     analysis = [
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}

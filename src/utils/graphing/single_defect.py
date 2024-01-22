@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 from src.utils import models
 
 
-def generate_plot(pipe: models.Pipe) -> go.Figure:
+def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
     """
     Generates a plot to represent the pipe's current state, with a single defect represented as a point
     with the maximum allowable defect depth at each length represented as a line.
@@ -44,7 +44,7 @@ def generate_plot(pipe: models.Pipe) -> go.Figure:
     fig['data'][0]['name'] = 'Calculated Limits'
     fig['data'][1]['name'] = 'Actual Dimensions'
 
-    fig.update_layout(width=1000, height=800,
+    fig.update_layout(height=800,
                       legend=dict(
                           orientation="h",
                           yanchor="bottom",
@@ -57,7 +57,7 @@ def generate_plot(pipe: models.Pipe) -> go.Figure:
     return fig
 
 
-def generate_pipe_plot(pipe: models.Pipe) -> go.Figure:
+def generate_cross_section_plot(pipe: models.Pipe) -> go.Figure:
     """
     Generates a pair of plots as cross-sectional representations of the pipe and defect.
     Args:
