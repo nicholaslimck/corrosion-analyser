@@ -1,11 +1,7 @@
 import math
 
-try:
-    from utils.calculations.defect_calculations import (calculate_length_correction_factor,
+from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_circumferential_corroded_length_ratio)
-except ImportError:
-    from ..calculations.defect_calculations import (calculate_length_correction_factor,
-                                                    calculate_circumferential_corroded_length_ratio)
 
 
 def calculate_pressure_capacity(t_nominal, sigma_u, d_nominal, defect_depth, defect_length):
@@ -20,11 +16,11 @@ def calculate_pressure_capacity(t_nominal, sigma_u, d_nominal, defect_depth, def
     (d/t) = measured defect depth
     Q = length correction factor
     Args:
-        t_nominal:
-        sigma_u:
-        d_nominal:
-        defect_depth:
-        defect_length:
+        t_nominal: Nominal pipe wall thickness (mm)
+        sigma_u: Ultimate tensile strength (N/mm^2)
+        d_nominal: Nominal Pipe Diameter (mm)
+        defect_depth: Defect Depth (mm)
+        defect_length: Defect Length (mm)
 
     Returns:
         p_cap: Pressure Capacity
@@ -41,13 +37,13 @@ def calculate_pressure_resistance_long_defect(gamma_m, gamma_d, t_nominal, defec
     (longitudinal corrosion defect, internal pressure loading only)
     p_corr = gamma_m * (2*t_nom*f_u)/(d_nom - t_nom)
     Args:
-        gamma_m: Partial safety factor
-        gamma_d:
-        t_nominal:
-        defect_length:
-        d_nominal:
+        gamma_m: Partial Safety Factor for Longitudinal Corrosion Model Projection
+        gamma_d: Partial Safety Factor for Corrosion Depth
+        t_nominal: Nominal pipe wall thickness
+        defect_length: Defect Length (mm)
+        d_nominal: Nominal Pipe Diameter (mm)
         relative_defect_depth_with_uncertainty:
-        f_u:
+        f_u: Tensile strength to be used in design (N/mm^2)
 
     Returns:
         p_corr: Pressure Resistance
@@ -68,16 +64,16 @@ def calculate_pressure_resistance_long_defect_w_compressive(gamma_m, gamma_d, t_
     (longitudinal corrosion defect, internal pressure loading with superimposed longitudinal compressive stresses)
     p_corr = gamma_m * (2*t_nom*f_u)/(d_nom - t_nom)
     Args:
-        gamma_m: Partial safety factor
-        gamma_d:
-        t_nominal:
-        defect_length:
-        defect_width:
+        gamma_m: Partial Safety Factor for Longitudinal Corrosion Model Projection
+        gamma_d: Partial Safety Factor for Corrosion Depth
+        t_nominal: Nominal pipe wall thickness (mm)
+        defect_length: Defect Length (mm)
+        defect_width: Defect Width (mm)
         defect_relative_depth_measured:
         defect_relative_depth_normalised:
-        d_nominal:
-        f_u:
-        sigma_l: combined nominal longitudinal stress due to external applied loads
+        d_nominal: Nominal Pipe Diameter
+        f_u: Tensile strength to be used in design (N/mm^2)
+        sigma_l: combined nominal longitudinal stress due to external applied loads (N/mm^2)
         phi: usage factor for longitudinal stress
 
     Returns:
@@ -101,13 +97,13 @@ def calculate_max_defect_depth(gamma_m, gamma_d, t_nominal, defect_length, d_nom
     """
     Calculates the maximum defect depth by reversing the pressure resistance calculation from 3.7.3
     Args:
-        gamma_m:
-        gamma_d:
-        t_nominal:
-        defect_length:
-        d_nominal:
-        f_u:
-        p_corr:
+        gamma_m: Partial Safety Factor for Longitudinal Corrosion Model Projection
+        gamma_d: Partial Safety Factor for Corrosion Depth
+        t_nominal: Nominal pipe wall thickness (mm)
+        defect_length: Defect length (mm)
+        d_nominal: Nominal pipe diameter (mm)
+        f_u: Tensile strength to be used in design (N/mm^2)
+        p_corr: Pressure resistance of a single longitudinal corrosion defect under internal pressure loading (N/mm^2)
 
     Returns:
 
@@ -123,7 +119,7 @@ def calculate_maximum_defect_depth(gamma_d, epsilon_d, std_dev):
     """
     Calculates the maximum defect depth based on Section 3.7.3.3
     Args:
-        gamma_d:
+        gamma_d: Partial Safety Factor for Corrosion Depth
         epsilon_d:
         std_dev:
 
@@ -138,14 +134,14 @@ def calculate_maximum_defect_length(d, t, gamma_d, gamma_m, f_u, dt_star, p_li, 
     """
     Calculates the maximum defect length based on Section 3.7.3.2
     Args:
-        d:
-        t:
-        gamma_d:
-        gamma_m:
-        f_u:
-        dt_star:
-        p_li:
-        p_le:
+        d: Pipe Diameter (mm)
+        t: Pipe Thickness (mm)
+        gamma_d: Partial Safety Factor for Corrosion Depth
+        gamma_m: Partial Safety Factor for Longitudinal Corrosion Model Projection
+        f_u: Tensile strength to be used in design (N/mm^2)
+        dt_star: Relative Measured Defect Depth
+        p_li: Local Incidental Pressure (N/mm^2)
+        p_le: Local External Pressure (N/mm^2)
 
     Returns:
 
