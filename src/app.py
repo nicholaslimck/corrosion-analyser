@@ -4,7 +4,17 @@ from dash import html
 
 from src.utils import is_docker
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.MATERIA], use_pages=True)
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.MATERIA],
+    use_pages=True,
+    meta_tags=[
+        {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1, maximum-scale=1",
+        }
+    ],
+)
 
 app.layout = html.Div([
     # html.H1('Corrosion Analyser'),

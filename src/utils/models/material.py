@@ -7,10 +7,10 @@ class MaterialProperties:
     Material properties
 
     """
-    alpha_u: float = 0.96  # Typically 0.96 as stated in Table 2-2
+    alpha_u: float = 0.96       # Typically 0.96 as stated in Table 2-2
     temperature: float = None
-    smts: float = None
-    smys: float = None
+    smts: float = None          # Specified Minimum Tensile Strength (N/mm^2)
+    smys: float = None          # Specified Minimum Yield Stress (N/mm^2)
     f_u_temp: float = None
     f_y_temp: float = None
 

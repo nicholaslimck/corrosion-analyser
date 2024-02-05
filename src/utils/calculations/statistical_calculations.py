@@ -39,12 +39,12 @@ def calculate_inv_cumulative_dist(x):
 
 def calculate_partial_safety_factors(safety_class, inspection_method, inspection_accuracy):
     """
-    Returns the partial safety factor based off the safety class as stated in Table 3-2
-    Returns the partial safety factor and fractile value per Table 3-8
+    Returns the partial safety factor (gamma_m) based off the safety class as stated in Table 3-2
+    Returns the partial safety factor (gamma_d) and fractile (epsilon_d) value per Table 3-8
     Args:
         safety_class: Safety class, must be 'low', 'medium', 'high' or 'very high'
-        inspection_method:
-        inspection_accuracy:
+        inspection_method: Must be 'relative' or 'absolute'
+        inspection_accuracy: Must be smaller than 0.16
 
     Returns:
         partial_safety_factors: {"gamma_m", "gamma_d", "epsilon_d"}

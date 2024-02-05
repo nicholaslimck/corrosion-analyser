@@ -2,8 +2,9 @@ import time
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, callback
-from dash.dependencies import Input, Output
+import pandas as pd
+from dash import dcc, html, callback, dash_table
+from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
@@ -13,86 +14,110 @@ dash.register_page(__name__)
 
 
 def layout():
-    def generate_input(name, field_type):
-        return dbc.Input(id=f'input_{name.lower().replace(" ", "_")}', type=field_type, debounce=1, placeholder=name)
 
-    pipe_dimensions = dbc.Col([
-        html.H4("Pipe Dimensions"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('Outer Diameter', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Wall Thickness', 'number'))])
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
+    # Data input table configuration
+    # Configure input table with default values as defined in Example A.1-1
+    input_fields = [
+        {'Parameter': 'Pipe Outer Diameter', 'Value': 812.8, 'Unit': 'mm'},
+        {'Parameter': 'Pipe Wall Thickness', 'Value': 19.1, 'Unit': 'mm'},
+        {'Parameter': 'SMTS', 'Value': 530.9, 'Unit': 'MPa'},
+        {'Parameter': 'SMYS', 'Value': '', 'Unit': 'MPa'},
+        {'Parameter': 'Defect Length', 'Value': 200, 'Unit': 'mm'},
+        {'Parameter': 'Defect Width', 'Value': '', 'Unit': 'mm'},
+        {'Parameter': 'Defect Depth', 'Value': 0.25, 'Unit': 't'},
+        {'Parameter': 'Defect Elevation', 'Value': -100, 'Unit': 'm'},
+        {'Parameter': 'Design Pressure', 'Value': 150, 'Unit': 'bar'},
+        {'Parameter': 'Design Temperature', 'Value': 75, 'Unit': '°C'},
+        {'Parameter': 'Incidental to Design Pressure Ratio', 'Value': 1.1, 'Unit': ''},
+        {'Parameter': 'Accuracy', 'Value': 0.1, 'Unit': 'mm'},
+        {'Parameter': 'Confidence Level', 'Value': 0.8, 'Unit': 'MPa'},
+        {'Parameter': 'Seawater Density', 'Value': 1025, 'Unit': 'kg/m³'},
+        {'Parameter': 'Containment Density', 'Value': 200, 'Unit': 'kg/m³'},
+        {'Parameter': 'Elevation Reference', 'Value': 30, 'Unit': 'm'},
+        {'Parameter': 'Axial Stress', 'Value': '', 'Unit': 'MPa'},
+        {'Parameter': 'Bending Stress', 'Value': '', 'Unit': 'MPa'},
+        {'Parameter': 'Combined Stress', 'Value': '', 'Unit': 'MPa'}
+    ]
+    input_table = dash_table.DataTable(
+        id='single_defect_input_table',
+        columns=[
+            {'name': 'Parameter', 'id': 'Parameter', 'editable': False},
+            {'name': 'Value', 'id': 'Value', 'editable': True},
+            {'name': 'Unit', 'id': 'Unit', 'editable': False}],
+        data=input_fields,
+        fill_width=False
+    )
 
-    material_properties = dbc.Col([
-        html.H4("Material Properties"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('SMTS', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('SMYS', 'number'))])
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
+    # Layout configuration
+    center_align_style = {
+            "text-align": "center",
+            "display": "flex",
+            "justify-content": "center",
+            "align-items": "center"
+        }
 
-    defect_properties = dbc.Col([
-        html.H4("Defect Properties"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('Defect Length', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Defect Depth', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Defect Elevation', 'number'))])
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
-
-    environment_properties = dbc.Col([
-        html.H4("Environment Properties"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('Seawater Density', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Containment Density', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Elevation Reference', 'number'))])
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
-
-    design_parameters = dbc.Col([
-        html.H4("Design Parameters"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('Design Pressure', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Design Temperature', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Incidental to Design Pressure Ratio', 'number'))]),
-            dbc.Row([dbc.Col(dcc.Dropdown(id='safety_class', options=[
-                'low', 'medium', 'high'], placeholder='Safety Class'))
-                     ], style={'padding': '10px 0px'})
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top', 'width': 250})
-
-    measurement_parameters = dbc.Col([
-        html.H4("Measurement Parameters"),
-        dbc.Form([
-            dbc.Row([dbc.Col(generate_input('Accuracy', 'number'))]),
-            dbc.Row([dbc.Col(generate_input('Confidence Level', 'number'))]),
-            dbc.Row([dbc.Col(dcc.Dropdown(id='measurement_method', options=[
-                'relative', 'absolute'], placeholder='Measurement Method'))
-                     ], style={'padding': '10px 0px'})
-        ])
-    ], style={'display': 'inline-block', 'padding': '0px 10px', 'vertical-align': 'text-top'})
-
-    combined_layout = html.Div(
+    input_layout = dbc.Row(
         [
-            html.H1("Single Defect Analysis"),
-            html.Div(
-                children=[
-                    pipe_dimensions,
-                    material_properties,
-                    defect_properties,
-                    environment_properties,
-                    design_parameters,
-                    measurement_parameters,
-                    html.Button(children='Submit', id='single_defect_analyse'),
-                    html.Div(id='single_defect_analysis',
-                             style={'display': 'inline-block', "padding": "0px 10px", "vertical-align": "middle"})
-                ]
+            dbc.Row(html.H2('Input Parameters')),
+            dbc.Row(
+                [
+                    dbc.Col(dbc.InputGroup([
+                        dbc.InputGroupText("Safety Class:"),
+                        dbc.Select(
+                            id='single_defect_select_safety_class',
+                            value='medium',
+                            options=[
+                                {'label': 'Low', 'value': 'low'},
+                                {'label': 'Medium', 'value': 'medium'},
+                                {'label': 'High', 'value': 'high'}
+                            ], style=center_align_style
+                        )
+                    ], className="mb-3"), xs=12, md=6),
+                ], style=center_align_style
             ),
-            html.H3('Remaining Life Assessment'),
-            dcc.Graph(id='single_defect_graph', figure={}),
-            html.Div(id='single_defect_evaluation')
+            dbc.Row(
+                [
+                    dbc.Col(dbc.InputGroup([
+                        dbc.InputGroupText("Defect Measurement:"),
+                        dbc.Select(
+                            id='single_defect_select_measurement',
+                            value='relative',
+                            options=[
+                                {'label': 'Relative', 'value': 'relative'},
+                                {'label': 'Absolute', 'value': 'absolute'}
+                            ], style=center_align_style
+                        )
+                    ], className="mb-3"), xs=12, md=6),
+                ], style=center_align_style
+            ),
+            dbc.Row(dbc.Col(input_table, style=center_align_style)),
+            dbc.Row(dbc.Col(
+                [
+                    dbc.Button(children='Refresh', id='single_defect_table_analyse', style={"margin-top": "10px"}),
+                    html.Div(id='single_defect_table_analysis')
+                ]
+            ))
         ],
+        style={"margin-top": "15px", **center_align_style}
+    )
+
+    graphs_layout = dbc.Row(
+        [
+            html.H3('Remaining Life Assessment', style={"text-align": "center"}),
+            dbc.Col(dbc.Row(dcc.Loading(dcc.Graph(id='single_defect_table_graph'))), xs=12, md=10),
+            dbc.Col(dbc.Row(dcc.Loading(dcc.Graph(id='single_defect_pipe_table_graph'))), style=center_align_style),
+            html.Div(id='single_defect_table_evaluation')
+        ],
+        style={"margin-top": "15px", **center_align_style}
+    )
+
+    combined_layout = dbc.Container(
+        children=[
+            dbc.Row(html.H1("Single Defect Analysis"), style={"text-align": "center"}),
+            input_layout,
+            graphs_layout
+        ],
+        fluid=True,
         style={"padding": "10px 10px"}
     )
 
@@ -131,19 +156,78 @@ def example_a_1():
     return pipe
 
 
-def init_pipe(pipe_config, defect_config, environment_config):
+def create_pipe(input_df: pd.DataFrame):
+    diameter = input_df.query("Parameter == 'Pipe Outer Diameter'")['Value'].values[0]
+    wall_thickness = input_df.query("Parameter == 'Pipe Wall Thickness'")['Value'].values[0]
+    smts = input_df.query("Parameter == 'SMTS'")['Value'].values[0]
+    design_pressure = input_df.query("Parameter == 'Design Pressure'")['Value'].values[0]
+    design_temperature = input_df.query("Parameter == 'Design Temperature'")['Value'].values[0]
+    incidental_to_design_pressure_ratio = input_df.query("Parameter == 'Incidental to Design Pressure Ratio'")['Value'].values[0]
+    accuracy = input_df.query("Parameter == 'Accuracy'")['Value'].values[0]
+    confidence_level = input_df.query("Parameter == 'Confidence Level'")['Value'].values[0]
+    safety_class = input_df.query("Parameter == 'Safety Class'")['Value'].values[0]
+
+    measurement_method = "relative" if input_df.query("Parameter == 'Defect Depth'")['Unit'].values[0] == "t" else "absolute"
+    pipe_config = {
+        'outside_diameter': diameter,
+        'wall_thickness': wall_thickness,
+        'alpha_u': 0.96,
+        'smts': smts,
+        'design_pressure': design_pressure,
+        'design_temperature': design_temperature,
+        'incidental_to_design_pressure_ratio': incidental_to_design_pressure_ratio,
+        'accuracy': accuracy,
+        'confidence_level': confidence_level,
+        'safety_class': safety_class,
+        'measurement_method': measurement_method
+    }
+
+    defect_length = input_df.query("Parameter == 'Defect Length'")['Value'].values[0]
+    defect_width = input_df.query("Parameter == 'Defect Width'")['Value'].values[0]
+    defect_depth = float(input_df.query("Parameter == 'Defect Depth'")['Value'].values[0])
+    defect_elevation = input_df.query("Parameter == 'Defect Elevation'")['Value'].values[0]
+    defect_config = {
+        'length': defect_length,
+        'width': defect_width,
+        "relative_depth" if input_df.query("Parameter == 'Defect Depth'")['Unit'].values[0] == "t" else "depth": defect_depth,
+        'elevation': defect_elevation
+    }
+
+    seawater_density = input_df.query("Parameter == 'Seawater Density'")['Value'].values[0]
+    containment_density = input_df.query("Parameter == 'Containment Density'")['Value'].values[0]
+    elevation_reference = input_df.query("Parameter == 'Elevation Reference'")['Value'].values[0]
+    environment_config = {
+        'seawater_density': seawater_density,
+        'containment_density': containment_density,
+        'elevation_reference': elevation_reference
+    }
+
+    axial_stress = input_df.query("Parameter == 'Axial Stress'")['Value'].values[0]
+    bending_stress = input_df.query("Parameter == 'Bending Stress'")['Value'].values[0]
+    combined_stress = input_df.query("Parameter == 'Combined Stress'")['Value'].values[0]
+    if any([axial_stress, bending_stress, combined_stress]):
+        loading_config = {
+            'axial_load': axial_stress,
+            'bending_load': bending_stress,
+            'combined_stress': combined_stress
+        }
+    else:
+        loading_config = None
+
+    pipe = init_pipe(pipe_config, defect_config, environment_config, loading_config)
+
+    return pipe
+
+
+def init_pipe(pipe_config, defect_config, environment_config, loading_config=None):
     pipe = models.Pipe(config=pipe_config)
     defect = models.Defect(**defect_config)
     environment = models.Environment(**environment_config)
 
     pipe.add_defect(defect)
+    if loading_config:
+        pipe.add_loading(**loading_config)
     pipe.set_environment(environment)
-
-    # Calculate length correction factor
-    defect.generate_length_correction_factor(
-        d_nominal=pipe.dimensions.outside_diameter,
-        t=pipe.dimensions.wall_thickness
-    )
 
     # Calculate p_corr
     pipe.calculate_pressure_resistance()
@@ -153,77 +237,34 @@ def init_pipe(pipe_config, defect_config, environment_config):
 
 # Add controls to build the interaction
 @callback(
-    Output(component_id='single_defect_graph', component_property='figure'),
-    Output(component_id='single_defect_analysis', component_property='children'),
-    Output(component_id='single_defect_evaluation', component_property='children'),
-    Input(component_id='single_defect_analyse', component_property='n_clicks'),
-    Input(component_id='input_outer_diameter', component_property='value'),
-    Input(component_id='input_wall_thickness', component_property='value'),
-    Input(component_id='input_smts', component_property='value'),
-    Input(component_id='input_design_pressure', component_property='value'),
-    Input(component_id='input_design_temperature', component_property='value'),
-    Input(component_id='input_incidental_to_design_pressure_ratio', component_property='value'),
-    Input(component_id='input_accuracy', component_property='value'),
-    Input(component_id='input_confidence_level', component_property='value'),
-    Input(component_id='safety_class', component_property='value'),
-    Input(component_id='measurement_method', component_property='value'),
-    Input(component_id='input_defect_length', component_property='value'),
-    Input(component_id='input_defect_depth', component_property='value'),
-    Input(component_id='input_defect_elevation', component_property='value'),
-    Input(component_id='input_seawater_density', component_property='value'),
-    Input(component_id='input_containment_density', component_property='value'),
-    Input(component_id='input_elevation_reference', component_property='value')
+    Output(component_id='single_defect_table_graph', component_property='figure'),
+    Output(component_id='single_defect_pipe_table_graph', component_property='figure'),
+    Output(component_id='single_defect_table_analysis', component_property='children'),
+    Output(component_id='single_defect_table_evaluation', component_property='children'),
+    Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
+    State(component_id='single_defect_input_table', component_property='data'),
+    State(component_id='single_defect_select_safety_class', component_property='value'),
+    # State(component_id='single_defect_select_measurement', component_property='value'),
 )
-def update_graph(trigger_update,
-                 pipe_outer_diameter,
-                 pipe_wall_thickness,
-                 smts,
-                 design_pressure,
-                 design_temperature,
-                 incidental_to_design_pressure_ratio,
-                 accuracy,
-                 confidence_level,
-                 safety_class,
-                 measurement_method,
-                 defect_length,
-                 defect_depth,
-                 defect_elevation,
-                 seawater_density,
-                 containment_density,
-                 elevation_reference):
+def update_graph(trigger_update, data, safety_class):
     start_time = time.time()
-    if not trigger_update:
-        pipe = example_a_1()
-    else:
-        pipe_config = {
-            'outside_diameter': pipe_outer_diameter,
-            'wall_thickness': pipe_wall_thickness,
-            'alpha_u': 0.96,
-            'smts': smts,
-            'design_pressure': design_pressure,
-            'design_temperature': design_temperature,
-            'incidental_to_design_pressure_ratio': incidental_to_design_pressure_ratio,
-            'accuracy': accuracy,
-            'confidence_level': confidence_level,
-            'safety_class': safety_class,
-            'measurement_method': measurement_method
-        }
+    data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
+    for item in data:
+        try:
+            item['Value'] = float(item['Value'])
+        except ValueError:
+            pass
+    df = pd.DataFrame(
+        data=data
+    )
 
-        defect_config = {
-            'length': defect_length,
-            'relative_depth': defect_depth,
-            'elevation': defect_elevation
-        }
+    # if not trigger_update:
+    #     pipe = example_a_1()
+    # else:
+    pipe = create_pipe(df)
 
-        environment_config = {
-            'seawater_density': seawater_density,
-            'containment_density': containment_density,
-            'elevation_reference': elevation_reference
-        }
-
-        pipe = init_pipe(pipe_config, defect_config, environment_config)
-
-    fig = single_defect.generate_defect_depth_plot(pipe)
+    fig1 = single_defect.generate_defect_depth_plot(pipe)
+    fig2 = single_defect.generate_cross_section_plot(pipe, 'horizontal')
     analysis = [
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
@@ -237,4 +278,17 @@ def update_graph(trigger_update,
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                 for contents in analysis]
     logger.debug(f"Single-Defect Scenario loaded | Render time: {time.time() - start_time:.2f}s")
-    return fig, analysis, evaluation
+    return fig1, fig2, analysis, evaluation
+
+
+@callback(
+    Output(component_id='single_defect_input_table', component_property='data'),
+    Input(component_id='single_defect_select_measurement', component_property='value'),
+    State(component_id='single_defect_input_table', component_property='data')
+)
+def update_measurement_method(measurement, data):
+    if measurement == 'relative':
+        data[6]['Unit'] = 't'
+    else:
+        data[6]['Unit'] = 'mm'
+    return data
