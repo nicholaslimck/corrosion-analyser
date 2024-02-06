@@ -63,11 +63,12 @@ def layout():
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} contains "Stress"'
+                    'filter_query': '{Parameter} eq "Combined Stress"'
                 },
                 'type': 'markdown',
-                'value': 'Populate Bending and/or Axial stress, or only Combined Stress. Leave blank if not applicable.'
-                         ' Stress calculations also require a Defect Width value.'
+                'value': 'Calculates based on Axial and Bending Stresses. Can also be entered manually. '
+                         'Stress calculations also require a Defect Width value. '
+                         'Will automatically convert to a compressive load.'
             },
             {
                 'if': {
@@ -75,7 +76,21 @@ def layout():
                 },
                 'type': 'markdown',
                 'value': 'Must be populated if stress is provided. Leave blank if not applicable.'
-            }
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Defect Depth"'
+                },
+                'type': 'markdown',
+                'value': 'Defect depth as a fraction of the pipe wall thickness or as an absolute value.'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Accuracy"'
+                },
+                'type': 'markdown',
+                'value': 'Accuracy as a percentage or absolute value.'
+            },
         ]
     )
 
@@ -174,7 +189,6 @@ def create_pipe(input_df: pd.DataFrame):
     pipe_config = {
         'outside_diameter': diameter,
         'wall_thickness': wall_thickness,
-        'alpha_u': 0.96,
         'smts': smts,
         'design_pressure': design_pressure,
         'design_temperature': design_temperature,
@@ -205,13 +219,11 @@ def create_pipe(input_df: pd.DataFrame):
         'elevation_reference': elevation_reference
     }
 
-    axial_stress = input_df.query("Parameter == 'Axial Stress'")['Value'].values[0]
-    bending_stress = input_df.query("Parameter == 'Bending Stress'")['Value'].values[0]
+    # axial_stress = input_df.query("Parameter == 'Axial Stress'")['Value'].values[0]
+    # bending_stress = input_df.query("Parameter == 'Bending Stress'")['Value'].values[0]
     combined_stress = input_df.query("Parameter == 'Combined Stress'")['Value'].values[0]
-    if any([axial_stress, bending_stress, combined_stress]):
+    if combined_stress:
         loading_config = {
-            'axial_load': axial_stress,
-            'bending_load': bending_stress,
             'combined_stress': combined_stress
         }
     else:
@@ -290,7 +302,16 @@ def update_graph(trigger_update, data, safety_class):
     Input(component_id='single_defect_select_measurement', component_property='value'),
     State(component_id='single_defect_input_table', component_property='data')
 )
-def update_measurement_method(measurement, data):
+def update_measurement_method(measurement: str, data: dict):
+    """
+    Updates the input table to reflect the selected measurement method
+    Args:
+        measurement: 'relative' or 'absolute'
+        data: input table data
+
+    Returns:
+
+    """
     if measurement == 'relative':
         data[6]['Unit'] = 't'
         data[11]['Unit'] = ''
@@ -298,3 +319,36 @@ def update_measurement_method(measurement, data):
         data[6]['Unit'] = 'mm'
         data[11]['Unit'] = 'mm'
     return data
+
+
+@callback(
+    Output(component_id='single_defect_input_table', component_property='data', allow_duplicate=True),
+    Input(component_id='single_defect_input_table', component_property='data_timestamp'),
+    State(component_id='single_defect_input_table', component_property='data'),
+    prevent_initial_call=True
+)
+def sanitise_stress_values(timestamp: str, rows: dict):
+    """
+    Updates the input table to reflect the selected measurement method
+    Args:
+        timestamp: data update timestamp
+        rows: input table data rows
+
+    Returns:
+
+    """
+    axial_stress = 0
+    bending_stress = 0
+
+    for row in rows:
+        if row['Parameter'] == 'Axial Stress' and row['Value']:
+            axial_stress = abs(float(row['Value']))
+        if row['Parameter'] == 'Bending Stress' and row['Value']:
+            bending_stress = abs(float(row['Value']))
+        if row['Parameter'] == 'Combined Stress':
+            if any([axial_stress, bending_stress]):
+                row['Value'] = -1 * abs(axial_stress + bending_stress)
+            elif row['Value']:
+                row['Value'] = -1 * abs(float(row['Value']))
+
+    return rows

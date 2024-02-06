@@ -103,11 +103,11 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400)
     )
 
     fig.update_xaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
-                     zeroline=False, fixedrange=True)
+                     zeroline=False)
     fig.update_yaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
-                     zeroline=False, fixedrange=True)
+                     zeroline=False, scaleanchor="x", scaleratio=1, autorange=True)
 
-    fig.update_layout(width=figure_width, height=figure_width)
+    # fig.update_layout(width=figure_width, height=figure_width)
 
     return fig
 
@@ -149,7 +149,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05],
                      fixedrange=True)
 
-    fig.update_layout(width=figure_width, height=figure_width)
+    # fig.update_layout(width=figure_width, height=figure_width)
 
     return fig
 

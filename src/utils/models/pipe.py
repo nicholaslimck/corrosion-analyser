@@ -119,9 +119,10 @@ class Pipe:
         logger.debug("Initialising pipe")
         logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | T={self.config['wall_thickness']}")
         self.dimensions = PipeDimensions(self.config['outside_diameter'], self.config['wall_thickness'])
-        logger.debug(f"Material properties: alpha_u={self.config['alpha_u']} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
+        alpha_u = self.config.get('alpha_u', 0.96)
+        logger.debug(f"Material properties: alpha_u={alpha_u} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
         self.material_properties = MaterialProperties(
-            alpha_u=self.config['alpha_u'],
+            alpha_u=alpha_u,
             temperature=self.config['design_temperature'],
             smts=self.config.get('smts'),
             smys=self.config.get('smys')
