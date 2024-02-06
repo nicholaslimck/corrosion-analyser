@@ -46,51 +46,123 @@ def layout():
             {'name': 'Unit', 'id': 'Unit', 'editable': False}],
         data=input_fields,
         fill_width=False,
+        style_cell_conditional=[
+            {
+                'if': {'column_id': 'Parameter'},
+                'textAlign': 'left'
+            }
+        ],
         style_data={
             'whiteSpace': 'normal',
             'height': 'auto',
         },
+        style_data_conditional=[
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "SMTS"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "SMYS"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Defect Width"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Defect Depth"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Accuracy"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} contains "Stress"',
+                    'column_id': 'Parameter'
+                },
+                'color': 'grey'
+            }
+        ],
         tooltip_conditional=[
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "SMTS"'
+                    'filter_query': '{Parameter} eq "SMTS"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
                 'value': 'Specified Minimum Tensile Strength'
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "SMYS"'
+                    'filter_query': '{Parameter} eq "SMYS"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
-                'value': 'Specified Minimum Yield Strength'
+                'value': 'Specified Minimum Yield Stress'
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "Combined Stress"'
+                    'filter_query': '{Parameter} eq "Axial Stress"',
+                    'column_id': 'Parameter'
+                },
+                'type': 'markdown',
+                'value': 'Stress calculations require a Defect Width value.'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Bending Stress"',
+                    'column_id': 'Parameter'
+                },
+                'type': 'markdown',
+                'value': 'Stress calculations require a Defect Width value.'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Combined Stress"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
                 'value': 'Calculates based on Axial and Bending Stresses. Can also be entered manually. '
-                         'Stress calculations also require a Defect Width value. '
-                         'Will automatically convert to a compressive load.'
+                         'Stress calculations require a Defect Width value. '
+                         '\n\nNote: Will automatically convert to a compressive load.'
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "Defect Width"'
+                    'filter_query': '{Parameter} eq "Defect Width"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
-                'value': 'Must be populated if stress is provided. Leave blank if not applicable.'
+                'value': 'Required for stress calculations.\n\nLeave blank if not applicable.'
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "Defect Depth"'
+                    'filter_query': '{Parameter} eq "Defect Depth"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
                 'value': 'Defect depth as a fraction of the pipe wall thickness or as an absolute value.'
             },
             {
                 'if': {
-                    'filter_query': '{Parameter} eq "Accuracy"'
+                    'filter_query': '{Parameter} eq "Accuracy"',
+                    'column_id': 'Parameter'
                 },
                 'type': 'markdown',
                 'value': 'Accuracy as a percentage or absolute value.'
