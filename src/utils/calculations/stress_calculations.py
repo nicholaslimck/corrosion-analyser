@@ -7,7 +7,7 @@ def calculate_axial_longitudinal_stress(d, t, f_x):
     Args:
         d: nominal outside diameter (mm)
         t: uncorroded, measured pipe wall thickness (mm)
-        f_x:
+        f_x: axial force (N)
 
     Returns:
         sigma_a: Stress (N/mm^2)

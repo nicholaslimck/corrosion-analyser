@@ -29,8 +29,8 @@ def layout():
         {'Parameter': 'Design Pressure', 'Value': 150, 'Unit': 'bar'},
         {'Parameter': 'Design Temperature', 'Value': 75, 'Unit': '°C'},
         {'Parameter': 'Incidental to Design Pressure Ratio', 'Value': 1.1, 'Unit': ''},
-        {'Parameter': 'Accuracy', 'Value': 0.1, 'Unit': 'mm'},
-        {'Parameter': 'Confidence Level', 'Value': 0.8, 'Unit': 'MPa'},
+        {'Parameter': 'Accuracy', 'Value': 0.1, 'Unit': ''},
+        {'Parameter': 'Confidence Level', 'Value': 0.8, 'Unit': ''},
         {'Parameter': 'Seawater Density', 'Value': 1025, 'Unit': 'kg/m³'},
         {'Parameter': 'Containment Density', 'Value': 200, 'Unit': 'kg/m³'},
         {'Parameter': 'Elevation Reference', 'Value': 30, 'Unit': 'm'},
@@ -45,7 +45,38 @@ def layout():
             {'name': 'Value', 'id': 'Value', 'editable': True},
             {'name': 'Unit', 'id': 'Unit', 'editable': False}],
         data=input_fields,
-        fill_width=False
+        fill_width=False,
+        tooltip_conditional=[
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "SMTS"'
+                },
+                'type': 'markdown',
+                'value': 'Specified Minimum Tensile Strength'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "SMYS"'
+                },
+                'type': 'markdown',
+                'value': 'Specified Minimum Yield Strength'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} contains "Stress"'
+                },
+                'type': 'markdown',
+                'value': 'Populate Bending and/or Axial stress, or only Combined Stress. Leave blank if not applicable.'
+                         ' Stress calculations also require a Defect Width value.'
+            },
+            {
+                'if': {
+                    'filter_query': '{Parameter} eq "Defect Width"'
+                },
+                'type': 'markdown',
+                'value': 'Must be populated if stress is provided. Leave blank if not applicable.'
+            }
+        ]
     )
 
     # Layout configuration
@@ -58,7 +89,7 @@ def layout():
 
     input_layout = dbc.Row(
         [
-            dbc.Row(html.H2('Input Parameters')),
+            dbc.Row(dbc.Col(html.H2('Input Parameters'))),
             dbc.Row(
                 [
                     dbc.Col(dbc.InputGroup([
@@ -93,7 +124,7 @@ def layout():
             dbc.Row(dbc.Col(input_table, style=center_align_style)),
             dbc.Row(dbc.Col(
                 [
-                    dbc.Button(children='Refresh', id='single_defect_table_analyse', style={"margin-top": "10px"}),
+                    dbc.Button(children='Calculate', id='single_defect_table_analyse', style={"margin-top": "10px"}),
                     html.Div(id='single_defect_table_analysis')
                 ]
             ))
@@ -102,17 +133,21 @@ def layout():
     )
 
     graphs_layout = dbc.Row(
-        [
-            html.H3('Remaining Life Assessment', style={"text-align": "center"}),
-            dbc.Col(dbc.Row(dcc.Loading(dcc.Graph(id='single_defect_table_graph'))), xs=12, md=10),
-            dbc.Col(dbc.Row(dcc.Loading(dcc.Graph(id='single_defect_pipe_table_graph'))), style=center_align_style),
-            html.Div(id='single_defect_table_evaluation')
+        children=[
+            dbc.Row(dbc.Col(html.H3('Remaining Life Assessment', style={"text-align": "center"}))),
+            dbc.Row(dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), xs=12, md=10), justify='center'),
+            dbc.Row([
+                dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), xs=12, sm=10, md=5),
+                dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), xs=12, sm=10, md=5)
+            ], justify='center'),
+            dbc.Row(dbc.Col(html.Div(id='single_defect_table_evaluation', style={"text-align": "center"})))
         ],
         style={"margin-top": "15px", **center_align_style}
     )
 
     combined_layout = dbc.Container(
         children=[
+            html.Div(id='display'),
             dbc.Row(html.H1("Single Defect Analysis"), style={"text-align": "center"}),
             input_layout,
             graphs_layout
@@ -122,38 +157,6 @@ def layout():
     )
 
     return combined_layout
-
-
-def example_a_1():
-    pipe_config = {
-        'outside_diameter': 812.8,
-        'wall_thickness': 19.1,
-        'alpha_u': 0.96,
-        'smts': 530.9,
-        'design_pressure': 150,
-        'design_temperature': 75,
-        'incidental_to_design_pressure_ratio': 1.1,
-        'accuracy': 0.1,
-        'confidence_level': 0.8,
-        'safety_class': 'medium',
-        'measurement_method': 'relative'
-    }
-
-    defect_config = {
-        'length': 200,
-        'elevation': -100,
-        'relative_depth': 0.25
-    }
-
-    environment_config = {
-        'seawater_density': 1025,
-        'containment_density': 200,
-        'elevation_reference': 30
-    }
-
-    pipe = init_pipe(pipe_config, defect_config, environment_config)
-
-    return pipe
 
 
 def create_pipe(input_df: pd.DataFrame):
@@ -238,7 +241,8 @@ def init_pipe(pipe_config, defect_config, environment_config, loading_config=Non
 # Add controls to build the interaction
 @callback(
     Output(component_id='single_defect_table_graph', component_property='figure'),
-    Output(component_id='single_defect_pipe_table_graph', component_property='figure'),
+    Output(component_id='single_defect_pipe_cross_section_graph', component_property='figure'),
+    Output(component_id='single_defect_defect_cross_section_graph', component_property='figure'),
     Output(component_id='single_defect_table_analysis', component_property='children'),
     Output(component_id='single_defect_table_evaluation', component_property='children'),
     Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
@@ -248,6 +252,7 @@ def init_pipe(pipe_config, defect_config, environment_config, loading_config=Non
 )
 def update_graph(trigger_update, data, safety_class):
     start_time = time.time()
+
     data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
     for item in data:
         try:
@@ -258,13 +263,12 @@ def update_graph(trigger_update, data, safety_class):
         data=data
     )
 
-    # if not trigger_update:
-    #     pipe = example_a_1()
-    # else:
     pipe = create_pipe(df)
 
     fig1 = single_defect.generate_defect_depth_plot(pipe)
-    fig2 = single_defect.generate_cross_section_plot(pipe, 'horizontal')
+    fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
+    fig3 = single_defect.generate_defect_cross_section_plot(pipe)
+
     analysis = [
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
@@ -278,7 +282,7 @@ def update_graph(trigger_update, data, safety_class):
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                 for contents in analysis]
     logger.debug(f"Single-Defect Scenario loaded | Render time: {time.time() - start_time:.2f}s")
-    return fig1, fig2, analysis, evaluation
+    return fig1, fig2, fig3, analysis, evaluation
 
 
 @callback(
@@ -289,6 +293,8 @@ def update_graph(trigger_update, data, safety_class):
 def update_measurement_method(measurement, data):
     if measurement == 'relative':
         data[6]['Unit'] = 't'
+        data[11]['Unit'] = ''
     else:
         data[6]['Unit'] = 'mm'
+        data[11]['Unit'] = 'mm'
     return data

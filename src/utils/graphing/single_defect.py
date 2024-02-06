@@ -63,7 +63,98 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
     return fig
 
 
-def generate_cross_section_plot(pipe: models.Pipe, orientation: str = 'vertical') -> go.Figure:
+def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400) -> go.Figure:
+    """
+    Generates a plot to represent the pipe's cross-section.
+    Args:
+        pipe: Pipe object
+        figure_width: Width of the figure
+
+    Returns:
+        fig: Figure
+    """
+    outer_diameter = pipe.dimensions.outside_diameter
+    inner_diameter = pipe.dimensions.outside_diameter - 2 * pipe.dimensions.wall_thickness
+    thickness = pipe.dimensions.wall_thickness
+
+    fig = go.Figure()
+    # Set up pipe cross-section plot
+    fig.add_trace(go.Scatter(
+        x=[0, 0, 0],
+        y=[outer_diameter / 2, outer_diameter / 2.4, outer_diameter / 3],
+        text=[f"Outer Diameter: {outer_diameter:.2f}",
+              f"Wall Thickness: {thickness:.2f}",
+              f"Inner Diameter: {inner_diameter:.2f}"],
+        mode="text"),
+    )
+    fig.add_shape(
+        type="circle",
+        xref="x", yref="y",
+        x0=-outer_diameter / 2, y0=-outer_diameter / 2,
+        x1=outer_diameter / 2, y1=outer_diameter / 2,
+        line_color="LightSeaGreen"
+    )
+    fig.add_shape(
+        type="circle",
+        xref="x", yref="y",
+        x0=-inner_diameter / 2, y0=-inner_diameter / 2,
+        x1=inner_diameter / 2, y1=inner_diameter / 2,
+        line_color="LightSeaGreen"
+    )
+
+    fig.update_xaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
+                     zeroline=False, fixedrange=True)
+    fig.update_yaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
+                     zeroline=False, fixedrange=True)
+
+    fig.update_layout(width=figure_width, height=figure_width)
+
+    return fig
+
+
+def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 400) -> go.Figure:
+    """
+    Generates a plot to represent the pipe's cross-section with a defect.
+    Args:
+        pipe: Pipe object
+        figure_width: Width of the figure
+
+    Returns:
+        fig: Figure
+    """
+    outer_diameter = pipe.dimensions.outside_diameter
+    inner_diameter = pipe.dimensions.outside_diameter - 2 * pipe.dimensions.wall_thickness
+    thickness = pipe.dimensions.wall_thickness
+
+    fig = go.Figure()
+    # Set up defect cross-section subplot
+    fig.add_shape(
+        type="rect",
+        fillcolor="LightSeaGreen",
+        xref="x", yref="y",
+        x0=-10, y0=0,
+        x1=pipe.defect.length * 2.05, y1=thickness,
+        label=dict(text=f"Wall Thickness: {thickness:.2f}", font=dict(color="White"))
+    )
+    fig.add_shape(
+        type="rect",
+        fillcolor="LightSalmon",
+        xref="x", yref="y",
+        x0=pipe.defect.length * 0.5, y0=pipe.dimensions.wall_thickness - pipe.defect.depth,
+        x1=pipe.defect.length * 1.5, y1=pipe.dimensions.wall_thickness,
+        opacity=0.6,
+        label=dict(text=f"Defect Depth: {pipe.defect.depth:.2f}", font=dict(color="White"))
+    )
+    fig.update_xaxes(range=[0, pipe.defect.length * 2], fixedrange=True)
+    fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05],
+                     fixedrange=True)
+
+    fig.update_layout(width=figure_width, height=figure_width)
+
+    return fig
+
+
+def generate_cross_section_defect_combo_plot(pipe: models.Pipe, orientation: str = 'vertical') -> go.Figure:
     """
     Generates a pair of plots as cross-sectional representations of the pipe and defect.
     Args:

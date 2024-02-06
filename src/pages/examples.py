@@ -7,7 +7,7 @@ from dash.dependencies import Input, Output
 from loguru import logger
 
 from src.utils import models
-from src.utils.graphing.single_defect import generate_defect_depth_plot, generate_cross_section_plot, generate_pipe_properties_table
+from src.utils.graphing.single_defect import generate_defect_depth_plot, generate_cross_section_defect_combo_plot, generate_pipe_properties_table
 
 dash.register_page(__name__)
 
@@ -211,7 +211,7 @@ def update_graph(example_selected):
     else:
         raise ValueError('Unsupported selection')
     fig_defect_assessment = generate_defect_depth_plot(pipe)
-    fig_pipe = generate_cross_section_plot(pipe)
+    fig_pipe = generate_cross_section_defect_combo_plot(pipe)
     table = generate_pipe_properties_table(pipe)
     description = [
         f"""Pipe Dimensions:
