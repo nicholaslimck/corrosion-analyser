@@ -46,6 +46,10 @@ def layout():
             {'name': 'Unit', 'id': 'Unit', 'editable': False}],
         data=input_fields,
         fill_width=False,
+        style_data={
+            'whiteSpace': 'normal',
+            'height': 'auto',
+        },
         tooltip_conditional=[
             {
                 'if': {
