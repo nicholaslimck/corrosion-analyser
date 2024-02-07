@@ -1,8 +1,16 @@
+from os import environ
+import sys
+
 import dash
 import dash_bootstrap_components as dbc
 from dash import html
+from loguru import logger
 
-from src.utils import is_docker
+from src.utils import IS_DOCKER
+
+# Configure log level
+logger.remove()
+logger.add(sys.stdout, level=environ.get('LOG_LEVEL', 'INFO' if IS_DOCKER else 'DEBUG'))
 
 app = dash.Dash(
     __name__,
@@ -33,10 +41,15 @@ app.layout = html.Div([
 ])
 
 if __name__ == '__main__':
-    if is_docker():
+    if IS_DOCKER:
         # If run within a docker container, disable debug functions for performance and set IP Address to be
         # accessible from outside the container
-        app.run_server(host='0.0.0.0', debug=False)
+        from waitress import serve
+
+        logger.info('Starting server')
+        serve(app.server, host="0.0.0.0", port=8050)
+        # app.run_server(host='0.0.0.0', debug=False)
     else:
         # If run directly, enable debug functions
+        logger.info('Starting development server')
         app.run_server(debug=True)

@@ -243,8 +243,7 @@ def layout():
             input_layout,
             graphs_layout
         ],
-        fluid=True,
-        style={"padding": "10px 10px"}
+        fluid=True
     )
 
     return combined_layout
@@ -369,7 +368,7 @@ def update_graph(trigger_update, data, safety_class):
     analysis = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                 for contents in analysis]
-    logger.debug(f"Single-Defect Scenario loaded | Render time: {time.time() - start_time:.2f}s")
+    logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     return fig1, fig2, fig3, analysis, evaluation
 
 
