@@ -36,8 +36,17 @@ def generate_input_section(
         input_fields: list[tuple[str, str, str]]
 ):
     # fields = [dbc.Row([dbc.Col(generate_input(name, field_type))]) for name, field_type in input_fields]
-    fields = [dbc.Row([dbc.Col(generate_input_group(name, field_type, units))]) for name, field_type, units in input_fields]
+    fields = [dbc.Row([dbc.Col(generate_input_group(name, field_type, units))]) for name, field_type, units in
+              input_fields]
     return [
         html.H4(section_name),
         dbc.Form(fields)
     ]
+
+
+center_align_style = {
+    "text-align": "center",
+    "display": "flex",
+    "justify-content": "center",
+    "align-items": "center"
+}

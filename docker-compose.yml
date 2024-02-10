@@ -5,3 +5,4 @@ services:
     image: nicholaslimck/corrosion-analyser:dev
     ports:
       - '8050:8050'
+    restart: unless-stopped

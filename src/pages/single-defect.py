@@ -3,12 +3,14 @@ import time
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
+import plotly.graph_objects as go
 from dash import dcc, html, callback, dash_table
 from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import single_defect
+from src.utils.layout import center_align_style
 
 dash.register_page(__name__)
 
@@ -170,14 +172,6 @@ def layout():
         ]
     )
 
-    # Layout configuration
-    center_align_style = {
-            "text-align": "center",
-            "display": "flex",
-            "justify-content": "center",
-            "align-items": "center"
-        }
-
     input_layout = dbc.Row(
         [
             dbc.Row(dbc.Col(html.H2('Input Parameters'))),
@@ -216,9 +210,17 @@ def layout():
             dbc.Row(dbc.Col(
                 [
                     dbc.Button(children='Calculate', id='single_defect_table_analyse', style={"margin-top": "10px"}),
-                    html.Div(id='single_defect_table_analysis')
+                    dcc.Markdown(id='single_defect_table_analysis')
                 ]
-            ))
+            )),
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(dbc.ModalTitle("Input Error")),
+                    dbc.ModalBody(id='single_defect_input_error_modal_body'),
+                ],
+                id="single_defect_input_error_modal",
+                is_open=False,
+            ),
         ],
         style={"margin-top": "15px", **center_align_style}
     )
@@ -231,7 +233,7 @@ def layout():
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), xs=12, sm=10, md=5),
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), xs=12, sm=10, md=5)
             ], justify='center'),
-            dbc.Row(dbc.Col(html.Div(id='single_defect_table_evaluation', style={"text-align": "center"})))
+            dbc.Row(dbc.Col(dcc.Markdown(id='single_defect_table_evaluation', style={"text-align": "center"})))
         ],
         style={"margin-top": "15px", **center_align_style}
     )
@@ -294,22 +296,16 @@ def create_pipe(input_df: pd.DataFrame):
         'elevation_reference': elevation_reference
     }
 
-    # axial_stress = input_df.query("Parameter == 'Axial Stress'")['Value'].values[0]
-    # bending_stress = input_df.query("Parameter == 'Bending Stress'")['Value'].values[0]
     combined_stress = input_df.query("Parameter == 'Combined Stress'")['Value'].values[0]
     if combined_stress:
+        if not defect_width:
+            raise ValueError('Defect Width is required for stress calculations.')
         loading_config = {
             'combined_stress': combined_stress
         }
     else:
         loading_config = None
 
-    pipe = init_pipe(pipe_config, defect_config, environment_config, loading_config)
-
-    return pipe
-
-
-def init_pipe(pipe_config, defect_config, environment_config, loading_config=None):
     pipe = models.Pipe(config=pipe_config)
     defect = models.Defect(**defect_config)
     environment = models.Environment(**environment_config)
@@ -322,6 +318,7 @@ def init_pipe(pipe_config, defect_config, environment_config, loading_config=Non
     # Calculate p_corr
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
+
     return pipe
 
 
@@ -332,44 +329,81 @@ def init_pipe(pipe_config, defect_config, environment_config, loading_config=Non
     Output(component_id='single_defect_defect_cross_section_graph', component_property='figure'),
     Output(component_id='single_defect_table_analysis', component_property='children'),
     Output(component_id='single_defect_table_evaluation', component_property='children'),
+    Output(component_id="single_defect_input_error_modal", component_property="is_open"),
+    Output(component_id="single_defect_input_error_modal_body", component_property="children"),
     Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
     State(component_id='single_defect_input_table', component_property='data'),
     State(component_id='single_defect_select_safety_class', component_property='value'),
+    State(component_id='single_defect_table_graph', component_property='figure'),
+    State(component_id='single_defect_pipe_cross_section_graph', component_property='figure'),
+    State(component_id='single_defect_defect_cross_section_graph', component_property='figure'),
+    State(component_id='single_defect_table_analysis', component_property='children'),
+    State(component_id='single_defect_table_evaluation', component_property='children'),
     # State(component_id='single_defect_select_measurement', component_property='value'),
 )
-def update_graph(trigger_update, data, safety_class):
+def calculate_pipe_characteristics(
+        trigger_update,
+        data,
+        safety_class,
+        current_fig1,
+        current_fig2,
+        current_fig3,
+        current_analysis,
+        current_evaluation
+):
     start_time = time.time()
 
     data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
     for item in data:
-        try:
-            item['Value'] = float(item['Value'])
-        except ValueError:
-            pass
+        if item['Value'] == '':
+            item['Value'] = None
+        else:
+            try:
+                item['Value'] = float(item['Value'])
+            except (ValueError, TypeError):
+                pass
     df = pd.DataFrame(
         data=data
     )
+    error_encountered = False
+    error = ''
 
-    pipe = create_pipe(df)
+    try:
+        # Create pipe
+        pipe = create_pipe(df)
 
-    fig1 = single_defect.generate_defect_depth_plot(pipe)
-    fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
-    fig3 = single_defect.generate_defect_cross_section_plot(pipe)
+        # Generate figures
+        fig1 = single_defect.generate_defect_depth_plot(pipe)
+        fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
+        fig3 = single_defect.generate_defect_cross_section_plot(pipe)
 
-    analysis = [
-        f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f}
-        Pressure Resistance:        {pipe.properties.pressure_resistance:.2f}
+        analysis = f"""
+            Effective Pressure:\t{pipe.properties.effective_pressure:.2f}  
+            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f}
+            """
+
+        evaluation = f"""
+        Effective Pressure {pipe.properties.effective_pressure:.2f} MPa 
+        {'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} 
+        Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  
+        Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
         """
-    ]
-    evaluation = f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa " \
-                 f"{'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} " \
-                 f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa. " \
-                 f"Corrosion is {'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}."
-    analysis = [html.Div(contents, style={
-        'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
-                for contents in analysis]
-    logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
-    return fig1, fig2, fig3, analysis, evaluation
+        # analysis = [html.Div(contents, style={
+        #     'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
+        #             for contents in analysis]
+        logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
+    except Exception as e:
+        # Upon error, open the modal
+        logger.error(f"Error while loading single-defect scenario: {e}")
+        error_encountered = True
+        error = str(e)
+        fig1 = go.Figure(current_fig1)
+        fig2 = go.Figure(current_fig2)
+        fig3 = go.Figure(current_fig3)
+        analysis = current_analysis
+        evaluation = current_evaluation
+
+    return fig1, fig2, fig3, analysis, evaluation, error_encountered, error
 
 
 @callback(
