@@ -23,7 +23,7 @@ def layout():
         {'Parameter': 'Pipe Outer Diameter', 'Value': 812.8, 'Unit': 'mm'},
         {'Parameter': 'Pipe Wall Thickness', 'Value': 19.1, 'Unit': 'mm'},
         {'Parameter': 'SMTS', 'Value': 530.9, 'Unit': 'MPa'},
-        {'Parameter': 'SMYS', 'Value': '', 'Unit': 'MPa'},
+        # {'Parameter': 'SMYS', 'Value': '', 'Unit': 'MPa'},
         {'Parameter': 'Defect Length', 'Value': 200, 'Unit': 'mm'},
         {'Parameter': 'Defect Width', 'Value': '', 'Unit': 'mm'},
         {'Parameter': 'Defect Depth', 'Value': 0.25, 'Unit': 't'},
@@ -422,11 +422,11 @@ def update_measurement_method(measurement: str, data: dict):
 
     """
     if measurement == 'relative':
-        data[6]['Unit'] = 't'
-        data[11]['Unit'] = ''
+        data[5]['Unit'] = 't'
+        data[10]['Unit'] = ''
     else:
-        data[6]['Unit'] = 'mm'
-        data[11]['Unit'] = 'mm'
+        data[5]['Unit'] = 'mm'
+        data[10]['Unit'] = 'mm'
     return data
 
 
