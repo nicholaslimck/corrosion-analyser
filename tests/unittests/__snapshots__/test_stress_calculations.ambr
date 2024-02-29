@@ -1,0 +1,37 @@
+# serializer version: 1
+# name: test_calculate_axial_longitudinal_stress[219-14.5-100]
+  0.010734672833109879
+# ---
+# name: test_calculate_axial_longitudinal_stress[219-14.5-200]
+  0.021469345666219757
+# ---
+# name: test_calculate_axial_longitudinal_stress[219-14.5-300]
+  0.032204018499329634
+# ---
+# name: test_calculate_axial_longitudinal_stress[219-14.5-400]
+  0.042938691332439514
+# ---
+# name: test_calculate_bending_longitudinal_stress[219-14.5-100]
+  0.00020996915076987538
+# ---
+# name: test_calculate_bending_longitudinal_stress[219-14.5-200]
+  0.00041993830153975076
+# ---
+# name: test_calculate_bending_longitudinal_stress[219-14.5-300]
+  0.0006299074523096261
+# ---
+# name: test_calculate_bending_longitudinal_stress[219-14.5-400]
+  0.0008398766030795015
+# ---
+# name: test_calculate_nominal_longitudinal_stress[-200-0-219-14.5]
+  -0.021469345666219757
+# ---
+# name: test_calculate_nominal_longitudinal_stress[0--200-219-14.5]
+  -0.00041993830153975076
+# ---
+# name: test_calculate_nominal_longitudinal_stress[0-200-219-14.5]
+  0.00041993830153975076
+# ---
+# name: test_calculate_nominal_longitudinal_stress[200-0-219-14.5]
+  0.021469345666219757
+# ---
