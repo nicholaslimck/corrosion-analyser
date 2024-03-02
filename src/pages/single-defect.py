@@ -4,7 +4,7 @@ import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import dcc, html, callback, dash_table
+from dash import dcc, html, callback, dash_table, no_update
 from dash.dependencies import Input, Output, State
 from loguru import logger
 
@@ -23,7 +23,6 @@ def layout():
         {'Parameter': 'Pipe Outer Diameter', 'Value': 812.8, 'Unit': 'mm'},
         {'Parameter': 'Pipe Wall Thickness', 'Value': 19.1, 'Unit': 'mm'},
         {'Parameter': 'SMTS', 'Value': 530.9, 'Unit': 'MPa'},
-        # {'Parameter': 'SMYS', 'Value': '', 'Unit': 'MPa'},
         {'Parameter': 'Defect Length', 'Value': 200, 'Unit': 'mm'},
         {'Parameter': 'Defect Width', 'Value': '', 'Unit': 'mm'},
         {'Parameter': 'Defect Depth', 'Value': 0.25, 'Unit': 't'},
@@ -333,23 +332,12 @@ def create_pipe(input_df: pd.DataFrame):
     Output(component_id="single_defect_input_error_modal_body", component_property="children"),
     Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
     State(component_id='single_defect_input_table', component_property='data'),
-    State(component_id='single_defect_select_safety_class', component_property='value'),
-    State(component_id='single_defect_table_graph', component_property='figure'),
-    State(component_id='single_defect_pipe_cross_section_graph', component_property='figure'),
-    State(component_id='single_defect_defect_cross_section_graph', component_property='figure'),
-    State(component_id='single_defect_table_analysis', component_property='children'),
-    State(component_id='single_defect_table_evaluation', component_property='children'),
-    # State(component_id='single_defect_select_measurement', component_property='value'),
+    State(component_id='single_defect_select_safety_class', component_property='value')
 )
 def calculate_pipe_characteristics(
         trigger_update,
         data,
-        safety_class,
-        current_fig1,
-        current_fig2,
-        current_fig3,
-        current_analysis,
-        current_evaluation
+        safety_class
 ):
     start_time = time.time()
 
@@ -388,20 +376,17 @@ def calculate_pipe_characteristics(
         Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  
         Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
         """
-        # analysis = [html.Div(contents, style={
-        #     'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
-        #             for contents in analysis]
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except Exception as e:
         # Upon error, open the modal
         logger.error(f"Error while loading single-defect scenario: {e}")
         error_encountered = True
         error = str(e)
-        fig1 = go.Figure(current_fig1)
-        fig2 = go.Figure(current_fig2)
-        fig3 = go.Figure(current_fig3)
-        analysis = current_analysis
-        evaluation = current_evaluation
+        fig1 = no_update
+        fig2 = no_update
+        fig3 = no_update
+        analysis = no_update
+        evaluation = no_update
 
     return fig1, fig2, fig3, analysis, evaluation, error_encountered, error
 
