@@ -16,12 +16,11 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
     Returns:
         fig: Figure
     """
-    # limits = pipe.calculate_acceptable_limits()
-    limits_alt = pipe.calculate_acceptable_limits()
+    limits = pipe.properties.maximum_allowable_defect_depth
 
     # Plot figure
     fig = px.line(
-        limits_alt, x='defect_length', y='defect_depth',
+        limits, x='defect_length', y='defect_depth',
         color_discrete_sequence=['red'],
         labels={
             'defect_length': 'Corrosion Defect Length (mm)',

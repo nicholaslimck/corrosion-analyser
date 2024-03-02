@@ -100,6 +100,7 @@ class Loading:
 class Properties:
     pressure_resistance: float = None
     effective_pressure: float = None
+    maximum_allowable_defect_depth: pd.DataFrame = None
 
 
 @dataclass
@@ -217,7 +218,7 @@ class Pipe:
         logger.info("Calculating effective pressure")
         self.properties.effective_pressure = self.environment.incidental_pressure - self.environment.external_pressure
 
-    def calculate_acceptable_limits(self, resolution=0.001):
+    def calculate_maximum_allowable_defect_depth(self, resolution=0.001):
         """
         Calculate the maximum acceptable relative defect depth for a given defect depth
         Returns:
@@ -248,62 +249,28 @@ class Pipe:
             rows.append(pd.DataFrame(minimum_values, index=[0]))
         else:  # Calculate with loading
             target_pressure = self.properties.effective_pressure
-            assume_unacceptable = False
             depth_zeroed = False
 
-            # Check initial condition to see if no defect depth is acceptable at any defect length
-            initial_defect_depth_without_stress = calculate_max_defect_depth_longitudinal(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                t_nominal=self.dimensions.wall_thickness,
-                defect_length=1,
-                d_nominal=self.dimensions.outside_diameter,
-                f_u=self.material_properties.f_u,
-                p_corr=target_pressure,
-                epsilon_d=self.safety_factors.epsilon_d,
-                st_dev=self.measurement_factors.standard_deviation
-            )
-            initial_defect_depth_with_stress = calculate_max_defect_depth_longitudinal_with_stress(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                pipe_thickness=self.dimensions.wall_thickness,
-                defect_length=1,
-                defect_width=self.defect.width,
-                defect_depth=self.defect.depth,
-                pipe_diameter=self.dimensions.outside_diameter,
-                f_u=self.material_properties.f_u,
-                p_corr_comp=target_pressure,
-                xi=self.usage_factors.xi,
-                sigma_l=self.loading.loading_stress,
-                epsilon_d=self.safety_factors.epsilon_d,
-                st_dev=self.measurement_factors.standard_deviation
-            )
-            if initial_defect_depth_with_stress > initial_defect_depth_without_stress:
-                assume_unacceptable = True
+            for defect_length in np.arange(0, 1000, resolution*500):
+                if not depth_zeroed:
+                    defect_depth = calculate_max_defect_depth_longitudinal_with_stress(
+                                gamma_m=self.safety_factors.gamma_m,
+                                gamma_d=self.safety_factors.gamma_d,
+                                pipe_thickness=self.dimensions.wall_thickness,
+                                defect_length=defect_length,
+                                defect_width=self.defect.width,
+                                pipe_diameter=self.dimensions.outside_diameter,
+                                f_u=self.material_properties.f_u,
+                                p_corr_comp=target_pressure,
+                                xi=self.usage_factors.xi,
+                                sigma_l=self.loading.loading_stress,
+                                epsilon_d=self.safety_factors.epsilon_d,
+                                st_dev=self.measurement_factors.standard_deviation
+                            )
 
-            for defect_length in range(1, 1000, 1):
-                if not assume_unacceptable:
-                    if not depth_zeroed:
-                        defect_depth = calculate_max_defect_depth_longitudinal_with_stress(
-                                    gamma_m=self.safety_factors.gamma_m,
-                                    gamma_d=self.safety_factors.gamma_d,
-                                    pipe_thickness=self.dimensions.wall_thickness,
-                                    defect_length=defect_length,
-                                    defect_width=self.defect.width,
-                                    defect_depth=self.defect.depth,
-                                    pipe_diameter=self.dimensions.outside_diameter,
-                                    f_u=self.material_properties.f_u,
-                                    p_corr_comp=target_pressure,
-                                    xi=self.usage_factors.xi,
-                                    sigma_l=self.loading.loading_stress,
-                                    epsilon_d=self.safety_factors.epsilon_d,
-                                    st_dev=self.measurement_factors.standard_deviation
-                                )
-
-                        if defect_depth <= 0:
-                            depth_zeroed = True
-                            defect_depth = 0
-                    else:
+                    if defect_depth <= 0:
+                        # If defect depth reaches 0, skip calculations for the rest of the lengths
+                        depth_zeroed = True
                         defect_depth = 0
                 else:
                     defect_depth = 0
@@ -311,5 +278,6 @@ class Pipe:
                 rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
 
         limits = pd.concat(rows).reset_index(drop=True)
-        limits = limits.sort_values('defect_length')  # Sort by defect length
-        return limits
+        limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
+
+        self.properties.maximum_allowable_defect_depth = limits

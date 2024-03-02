@@ -111,10 +111,10 @@ def calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
     theta = calculate_circumferential_corroded_length_ratio(defect_width, d_nominal)
     a_r = 1 - defect_relative_depth_measured * theta
     # h1 cannot be greater than 1
-    h1 = min(1.0, (1 + (sigma_l / (phi * f_u)) * (1 / a_r)) / (1 - (gamma_m / (2 * phi * a_r)) *
+    h1 = (1 + (sigma_l / (phi * f_u)) * (1 / a_r)) / (1 - (gamma_m / (2 * phi * a_r)) *
                                                       ((1 - gamma_d * relative_defect_depth_with_uncertainty) /
-                                                       (1 - (gamma_d * relative_defect_depth_with_uncertainty / q)))))
+                                                       (1 - (gamma_d * relative_defect_depth_with_uncertainty / q))))
 
-    p_corr_comp = p_corr * h1
+    p_corr_comp = p_corr * min(h1, 1.0)
 
     return p_corr_comp

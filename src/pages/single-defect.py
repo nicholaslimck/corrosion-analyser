@@ -318,6 +318,9 @@ def create_pipe(input_df: pd.DataFrame):
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
 
+    # Calculate maximum allowable defect depth
+    pipe.calculate_maximum_allowable_defect_depth()
+
     return pipe
 
 
@@ -362,6 +365,7 @@ def calculate_pipe_characteristics(
 
         # Generate figures
         fig1 = single_defect.generate_defect_depth_plot(pipe)
+        # fig1 = no_update
         fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
         fig3 = single_defect.generate_defect_cross_section_plot(pipe)
 
