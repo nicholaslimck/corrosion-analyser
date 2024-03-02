@@ -3,7 +3,6 @@ import time
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
-import plotly.graph_objects as go
 from dash import dcc, html, callback, dash_table, no_update
 from dash.dependencies import Input, Output, State
 from loguru import logger
@@ -16,7 +15,6 @@ dash.register_page(__name__)
 
 
 def layout():
-
     # Data input table configuration
     # Configure input table with default values as defined in Example A.1-1
     input_fields = [
@@ -250,18 +248,18 @@ def layout():
     return combined_layout
 
 
-def create_pipe(input_df: pd.DataFrame):
-    diameter = input_df.query("Parameter == 'Pipe Outer Diameter'")['Value'].values[0]
-    wall_thickness = input_df.query("Parameter == 'Pipe Wall Thickness'")['Value'].values[0]
-    smts = input_df.query("Parameter == 'SMTS'")['Value'].values[0]
-    design_pressure = input_df.query("Parameter == 'Design Pressure'")['Value'].values[0]
-    design_temperature = input_df.query("Parameter == 'Design Temperature'")['Value'].values[0]
-    incidental_to_design_pressure_ratio = input_df.query("Parameter == 'Incidental to Design Pressure Ratio'")['Value'].values[0]
-    accuracy = input_df.query("Parameter == 'Accuracy'")['Value'].values[0]
-    confidence_level = input_df.query("Parameter == 'Confidence Level'")['Value'].values[0]
-    safety_class = input_df.query("Parameter == 'Safety Class'")['Value'].values[0]
+def create_pipe(pipe_data: dict) -> models.Pipe:
+    diameter = pipe_data['Pipe Outer Diameter']['Value']
+    wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
+    smts = pipe_data['SMTS']['Value']
+    design_pressure = pipe_data['Design Pressure']['Value']
+    design_temperature = pipe_data['Design Temperature']['Value']
+    incidental_to_design_pressure_ratio = pipe_data['Incidental to Design Pressure Ratio']['Value']
+    accuracy = pipe_data['Accuracy']['Value']
+    confidence_level = pipe_data['Confidence Level']['Value']
+    safety_class = pipe_data['Safety Class']['Value']
 
-    measurement_method = "relative" if input_df.query("Parameter == 'Defect Depth'")['Unit'].values[0] == "t" else "absolute"
+    measurement_method = "relative" if pipe_data['Defect Depth']['Unit'] == "t" else "absolute"
     pipe_config = {
         'outside_diameter': diameter,
         'wall_thickness': wall_thickness,
@@ -275,27 +273,27 @@ def create_pipe(input_df: pd.DataFrame):
         'measurement_method': measurement_method
     }
 
-    defect_length = input_df.query("Parameter == 'Defect Length'")['Value'].values[0]
-    defect_width = input_df.query("Parameter == 'Defect Width'")['Value'].values[0]
-    defect_depth = float(input_df.query("Parameter == 'Defect Depth'")['Value'].values[0])
-    defect_elevation = input_df.query("Parameter == 'Defect Elevation'")['Value'].values[0]
+    defect_length = pipe_data['Defect Length']['Value']
+    defect_width = pipe_data['Defect Width']['Value']
+    defect_depth = float(pipe_data['Defect Depth']['Value'])
+    defect_elevation = pipe_data['Defect Elevation']['Value']
     defect_config = {
         'length': defect_length,
         'width': defect_width,
-        "relative_depth" if input_df.query("Parameter == 'Defect Depth'")['Unit'].values[0] == "t" else "depth": defect_depth,
+        "relative_depth" if pipe_data['Defect Depth']['Unit'] == "t" else "depth": defect_depth,
         'elevation': defect_elevation
     }
 
-    seawater_density = input_df.query("Parameter == 'Seawater Density'")['Value'].values[0]
-    containment_density = input_df.query("Parameter == 'Containment Density'")['Value'].values[0]
-    elevation_reference = input_df.query("Parameter == 'Elevation Reference'")['Value'].values[0]
+    seawater_density = pipe_data['Seawater Density']['Value']
+    containment_density = pipe_data['Containment Density']['Value']
+    elevation_reference = pipe_data['Elevation Reference']['Value']
     environment_config = {
         'seawater_density': seawater_density,
         'containment_density': containment_density,
         'elevation_reference': elevation_reference
     }
 
-    combined_stress = input_df.query("Parameter == 'Combined Stress'")['Value'].values[0]
+    combined_stress = pipe_data['Combined Stress']['Value']
     if combined_stress:
         if not defect_width:
             raise ValueError('Defect Width is required for stress calculations.')
@@ -353,19 +351,16 @@ def calculate_pipe_characteristics(
                 item['Value'] = float(item['Value'])
             except (ValueError, TypeError):
                 pass
-    df = pd.DataFrame(
-        data=data
-    )
+    data_dict = {item['Parameter']: {"Value": item['Value'], "Unit": item['Unit']} for item in data}
     error_encountered = False
     error = ''
 
     try:
         # Create pipe
-        pipe = create_pipe(df)
+        pipe = create_pipe(data_dict)
 
         # Generate figures
         fig1 = single_defect.generate_defect_depth_plot(pipe)
-        # fig1 = no_update
         fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
         fig3 = single_defect.generate_defect_cross_section_plot(pipe)
 
