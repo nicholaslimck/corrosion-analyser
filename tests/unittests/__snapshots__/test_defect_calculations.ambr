@@ -1,4 +1,10 @@
 # serializer version: 1
+# name: test_calc_circumferential_corroded_length_ratio
+  0.14534697999259846
+# ---
 # name: test_calc_length_correction_factor
   1.3411705739658104
+# ---
+# name: test_calc_relative_defect_depth_with_inaccuracies
+  0.33
 # ---
