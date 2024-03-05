@@ -106,19 +106,12 @@ class Properties:
 class Pipe:
     def __init__(
             self,
-            config: dict,
-            # dimensions: PipeDimensions = None,
-            # material_properties: MaterialProperties = None,
-            # design_limits: DesignLimits = None,
-            # measurement_factors: MeasurementFactors = None,
-            # safety_factors: SafetyFactors = None,
-            # usage_factors: UsageFactors = None,
-            # defect: Defect = None,
-            # loading: Loading = None,
-            # environment: Environment = None,
-            # properties: Properties = Properties
+            config: dict
     ):
         self.config = config
+        self.defect = None
+        self.environment = None
+        self.loading = None
         self.properties = Properties()
 
         logger.debug("Initialising pipe")
@@ -155,14 +148,15 @@ class Pipe:
 
     def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
-        self.defect = defect
-        self.defect.complete_dimensions(self.dimensions.wall_thickness)
-        self.defect.calculate_d_t_adjusted(
+        defect.complete_dimensions(self.dimensions.wall_thickness)
+        defect.calculate_d_t_adjusted(
             epsilon_d=self.safety_factors.epsilon_d,
             stdev=self.measurement_factors.standard_deviation
         )
-        self.defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
-                                                      t=self.dimensions.wall_thickness)
+        defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
+                                                 t=self.dimensions.wall_thickness)
+
+        self.defect = defect
 
     def add_loading(self, axial_load: float = None, bending_load: float = None, combined_stress: float = None):
         if (axial_load or bending_load) and not combined_stress:
@@ -189,7 +183,20 @@ class Pipe:
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
-        if hasattr(self, 'loading'):
+        if not self.loading:
+            p_corr = calculate_pressure_resistance_longitudinal_defect(
+                gamma_m=self.safety_factors.gamma_m,
+                gamma_d=self.safety_factors.gamma_d,
+                t_nominal=self.dimensions.wall_thickness,
+                defect_length=self.defect.length,
+                d_nominal=self.dimensions.outside_diameter,
+                relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
+                f_u=self.material_properties.f_u,
+                q=self.defect.length_correction_factor
+            )
+            logger.info(f'Pressure Resistance: {p_corr}')
+            self.properties.pressure_resistance = p_corr
+        else:
             logger.info('Loading detected')
             p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
                 gamma_m=self.safety_factors.gamma_m,
@@ -207,19 +214,6 @@ class Pipe:
             )
             logger.info(f'Pressure Resistance: {p_corr_comp}')
             self.properties.pressure_resistance = p_corr_comp
-        else:
-            p_corr = calculate_pressure_resistance_longitudinal_defect(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                t_nominal=self.dimensions.wall_thickness,
-                defect_length=self.defect.length,
-                d_nominal=self.dimensions.outside_diameter,
-                relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
-                f_u=self.material_properties.f_u,
-                q=self.defect.length_correction_factor
-            )
-            logger.info(f'Pressure Resistance: {p_corr}')
-            self.properties.pressure_resistance = p_corr
 
     def calculate_effective_pressure(self):
         logger.info("Calculating effective pressure")
@@ -233,7 +227,7 @@ class Pipe:
         """
         logger.info(f"Calculating limits for defect depth and length")
         rows = []
-        if not hasattr(self, 'loading'):  # With no loading
+        if not self.loading:  # With no loading
             for relative_depth in np.arange(0, 1, resolution):
                 if not relative_depth:  # Depth must be greater than 0
                     continue
@@ -258,22 +252,22 @@ class Pipe:
             target_pressure = self.properties.effective_pressure
             depth_zeroed = False
 
-            for defect_length in np.arange(0, 1000, resolution*500):
+            for defect_length in np.arange(0, 1000, resolution * 500):
                 if not depth_zeroed:
                     defect_depth = calculate_max_defect_depth_longitudinal_with_stress(
-                                gamma_m=self.safety_factors.gamma_m,
-                                gamma_d=self.safety_factors.gamma_d,
-                                pipe_thickness=self.dimensions.wall_thickness,
-                                defect_length=defect_length,
-                                defect_width=self.defect.width,
-                                pipe_diameter=self.dimensions.outside_diameter,
-                                f_u=self.material_properties.f_u,
-                                p_corr_comp=target_pressure,
-                                xi=self.usage_factors.xi,
-                                sigma_l=self.loading.loading_stress,
-                                epsilon_d=self.safety_factors.epsilon_d,
-                                st_dev=self.measurement_factors.standard_deviation
-                            )
+                        gamma_m=self.safety_factors.gamma_m,
+                        gamma_d=self.safety_factors.gamma_d,
+                        pipe_thickness=self.dimensions.wall_thickness,
+                        defect_length=defect_length,
+                        defect_width=self.defect.width,
+                        pipe_diameter=self.dimensions.outside_diameter,
+                        f_u=self.material_properties.f_u,
+                        p_corr_comp=target_pressure,
+                        xi=self.usage_factors.xi,
+                        sigma_l=self.loading.loading_stress,
+                        epsilon_d=self.safety_factors.epsilon_d,
+                        st_dev=self.measurement_factors.standard_deviation
+                    )
 
                     if defect_depth <= 0:
                         # If defect depth reaches 0, skip calculations for the rest of the lengths
