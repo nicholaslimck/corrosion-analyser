@@ -5,6 +5,7 @@ from uuid import uuid4
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, DiskcacheManager, CeleryManager
+from flask_caching import Cache
 from loguru import logger
 
 from src.utils import IS_DOCKER
@@ -15,6 +16,7 @@ launch_uid = uuid4()
 logger.remove()
 logger.add(sys.stdout, level=environ.get('LOG_LEVEL', 'INFO' if IS_DOCKER else 'DEBUG'))
 
+# Setup background callback manager
 if 'REDIS_URL' in environ:
     # Use Redis & Celery if REDIS_URL set as an env variable
     from celery import Celery
@@ -43,6 +45,19 @@ app = dash.Dash(
     ],
     background_callback_manager=background_callback_manager
 )
+
+# Setup Flask-Caching
+if 'REDIS_URL' in environ:
+    cache = Cache(app.server, config={
+        # try 'filesystem' if you don't want to setup redis
+        'CACHE_TYPE': 'redis',
+        'CACHE_REDIS_URL': environ.get('REDIS_URL', '')
+    })
+else:
+    cache = Cache(app.server, config={
+        'CACHE_TYPE': 'filesystem',
+        'CACHE_DIR': 'cache-directory'
+    })
 
 app.layout = html.Div([
     # html.H1('Corrosion Analyser'),

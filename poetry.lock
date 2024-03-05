@@ -48,6 +48,17 @@ files = [
 ]
 
 [[package]]
+name = "cachelib"
+version = "0.9.0"
+description = "A collection of cache libraries in the same API interface."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "cachelib-0.9.0-py3-none-any.whl", hash = "sha256:811ceeb1209d2fe51cd2b62810bd1eccf70feba5c52641532498be5c675493b3"},
+    {file = "cachelib-0.9.0.tar.gz", hash = "sha256:38222cc7c1b79a23606de5c2607f4925779e37cdcea1c2ad21b8bae94b5425a5"},
+]
+
+[[package]]
 name = "celery"
 version = "5.3.6"
 description = "Distributed Task Queue."
@@ -517,6 +528,21 @@ Werkzeug = ">=3.0.0"
 [package.extras]
 async = ["asgiref (>=3.2)"]
 dotenv = ["python-dotenv"]
+
+[[package]]
+name = "flask-caching"
+version = "2.1.0"
+description = "Adds caching support to Flask applications."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "Flask-Caching-2.1.0.tar.gz", hash = "sha256:b7500c145135836a952e3de3a80881d9654e327a29c852c9265607f5c449235c"},
+    {file = "Flask_Caching-2.1.0-py3-none-any.whl", hash = "sha256:f02645a629a8c89800d96dc8f690a574a0d49dcd66c7536badc6d362ba46b716"},
+]
+
+[package.dependencies]
+cachelib = ">=0.9.0,<0.10.0"
+Flask = "*"
 
 [[package]]
 name = "idna"
@@ -1287,4 +1313,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <3.12"
-content-hash = "149dfb09ac0d41609bd3b28a72880cdbc161dedad351485ab12d9b051b1e1891"
+content-hash = "f9da7042fb108dea9921152a1b568d7c4b59da722549d479c9abbe29ac5d2891"

@@ -108,8 +108,10 @@ def calculate_max_defect_depth_longitudinal(
     """
 
     q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
-    relative_defect_depth_with_uncertainty = (q * (-d_nominal * p_corr + 2 * f_u * gamma_m * t_nominal + p_corr * t_nominal) /
-                    (gamma_d * (-d_nominal * p_corr + 2 * f_u * gamma_m * q * t_nominal + p_corr * t_nominal)))
+    relative_defect_depth_with_uncertainty = (
+            q * (-d_nominal * p_corr + 2 * f_u * gamma_m * t_nominal + p_corr * t_nominal) /
+            (gamma_d * (-d_nominal * p_corr + 2 * f_u * gamma_m * q * t_nominal + p_corr * t_nominal))
+    )
     relative_defect_depth = relative_defect_depth_with_uncertainty - (epsilon_d * st_dev)
     return relative_defect_depth
 

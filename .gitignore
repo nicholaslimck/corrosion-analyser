@@ -130,3 +130,7 @@ dmypy.json
 
 # Jetbrains IDEA
 .idea/
+
+# Flask-caching
+cache/
+cache-directory/
