@@ -103,26 +103,30 @@ class Properties:
     maximum_allowable_defect_depth: pd.DataFrame = None
 
 
-@dataclass
 class Pipe:
-    config: dict = field(repr=False)
-    dimensions: PipeDimensions = field(init=False)
-    material_properties: MaterialProperties = field(init=False)
-    design_limits: DesignLimits = field(init=False)
-    measurement_factors: MeasurementFactors = field(init=False)
-    safety_factors: SafetyFactors = field(init=False)
-    usage_factors: UsageFactors = field(init=False)
-    defect: Defect = field(init=False)
-    loading: Loading = field(init=False)
-    environment: Environment = field(init=False)
-    properties: Properties = field(default_factory=Properties)
+    def __init__(
+            self,
+            config: dict,
+            # dimensions: PipeDimensions = None,
+            # material_properties: MaterialProperties = None,
+            # design_limits: DesignLimits = None,
+            # measurement_factors: MeasurementFactors = None,
+            # safety_factors: SafetyFactors = None,
+            # usage_factors: UsageFactors = None,
+            # defect: Defect = None,
+            # loading: Loading = None,
+            # environment: Environment = None,
+            # properties: Properties = Properties
+    ):
+        self.config = config
+        self.properties = Properties()
 
-    def __post_init__(self):
         logger.debug("Initialising pipe")
-        logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | T={self.config['wall_thickness']}")
+        logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | t={self.config['wall_thickness']}")
         self.dimensions = PipeDimensions(self.config['outside_diameter'], self.config['wall_thickness'])
         alpha_u = self.config.get('alpha_u', 0.96)
-        logger.debug(f"Material properties: alpha_u={alpha_u} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
+        logger.debug(
+            f"Material properties: alpha_u={alpha_u} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
         self.material_properties = MaterialProperties(
             alpha_u=alpha_u,
             temperature=self.config['design_temperature'],
@@ -145,6 +149,9 @@ class Pipe:
         self.usage_factors = UsageFactors(
             self.config['safety_class']
         )
+
+    def __repr__(self):
+        return f"Pipe(D={self.dimensions.outside_diameter}, t={self.dimensions.wall_thickness})"
 
     def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
