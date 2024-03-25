@@ -17,7 +17,7 @@ class Defect:
 
     length_correction_factor: float = field(init=False)
     pressure_resistance: float = field(init=False)
-    measurement_timestamp: float = datetime.timestamp(datetime.now())
+    measurement_timestamp: float = None
 
     def __post_init__(self):
         if not (self.depth or self.relative_depth):

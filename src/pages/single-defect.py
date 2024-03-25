@@ -1,3 +1,4 @@
+import datetime
 import time
 
 import dash
@@ -208,7 +209,18 @@ def layout():
                             }
                         )
                     ),
-                    # dbc.Card(dbc.CardBody("This content is hidden in the collapse"))
+                    dbc.Row(
+                        dcc.DatePickerRange(
+                            id='single_defect_date_range',
+                            display_format='DD/MM/YYYY',
+                            min_date_allowed=datetime.date(1990, 1, 1),
+                            max_date_allowed=datetime.datetime.now().date(),
+                            initial_visible_month=datetime.datetime.now().date(),
+                            end_date=datetime.datetime.now().date(),
+                            start_date_placeholder_text='First Date',
+                            end_date_placeholder_text='Second Date'
+                        )
+                    )
                 ],
                 id="secondary_defect_collapse",
                 is_open=False,
@@ -297,7 +309,7 @@ def layout():
     return combined_layout
 
 
-def create_pipe(pipe_data: dict, calculate_allowable_depth: bool = True) -> models.Pipe:
+def create_pipe(pipe_data: dict) -> models.Pipe:
     diameter = pipe_data['Pipe Outer Diameter']['Value']
     wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
     smts = pipe_data['SMTS']['Value']
@@ -334,6 +346,12 @@ def create_pipe(pipe_data: dict, calculate_allowable_depth: bool = True) -> mode
         "relative_depth" if pipe_data['Secondary Defect Depth']['Unit'] == "t" else "depth": pipe_data['Secondary Defect Depth']['Value'],
         'elevation': pipe_data['Defect Elevation']['Value']
     }
+    if pipe_data['First Date']['Value'] and pipe_data['Second Date']['Value']:
+        first_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(pipe_data['First Date']['Value'], '%Y-%m-%d'))
+        second_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(pipe_data['Second Date']['Value'], '%Y-%m-%d'))
+
+        defect_config['measurement_timestamp'] = first_timestamp
+        secondary_defect_config['measurement_timestamp'] = second_timestamp
 
     seawater_density = pipe_data['Seawater Density']['Value']
     containment_density = pipe_data['Containment Density']['Value']
@@ -371,9 +389,12 @@ def create_pipe(pipe_data: dict, calculate_allowable_depth: bool = True) -> mode
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
 
-    if calculate_allowable_depth:
-        # Calculate maximum allowable defect depth
-        pipe.calculate_maximum_allowable_defect_depth()
+    # Calculate maximum allowable defect depth
+    pipe.calculate_maximum_allowable_defect_depth()
+
+    # Calculate estimated remaining life
+    if len(pipe.defects) > 1 and all(defect.measurement_timestamp for defect in pipe.defects):
+        pipe.estimate_remaining_life()
 
     return pipe
 
@@ -390,13 +411,17 @@ def create_pipe(pipe_data: dict, calculate_allowable_depth: bool = True) -> mode
     Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
     State(component_id='single_defect_input_table', component_property='data'),
     State(component_id='single_defect_select_safety_class', component_property='value'),
-    State(component_id='single_defect_secondary_input_table', component_property='data')
+    State(component_id='single_defect_secondary_input_table', component_property='data'),
+    State(component_id='single_defect_date_range', component_property='start_date'),
+    State(component_id='single_defect_date_range', component_property='end_date'),
 )
 def calculate_pipe_characteristics(
         trigger_update,
         data,
         safety_class,
-        secondary_data
+        secondary_data,
+        start_date,
+        end_date
 ):
     def set_dtypes(table_data):
         for item in table_data:
@@ -417,8 +442,11 @@ def calculate_pipe_characteristics(
     data_dict = {item['Parameter']: {"Value": item['Value'], "Unit": item['Unit']} for item in data}
 
     secondary_data = set_dtypes(secondary_data)
-    secondary_data_dict = {f"Secondary {item['Parameter']}": {"Value": item['Value'], "Unit": item['Unit']} for item in secondary_data}
-    # secondary_data_dict = data_dict | secondary_data_dict
+    secondary_data_dict = {f"Secondary {item['Parameter']}": {"Value": item['Value'], "Unit": item['Unit']} for item in
+                           secondary_data}
+    secondary_data_dict['First Date'] = {"Value": start_date, "Unit": 'date'}
+    secondary_data_dict['Second Date'] = {"Value": end_date, "Unit": 'date'}
+
     data_dict = data_dict | secondary_data_dict
 
     error_encountered = False
@@ -433,9 +461,16 @@ def calculate_pipe_characteristics(
         fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
         fig3 = single_defect.generate_defect_cross_section_plot(pipe)
 
-        analysis = f"""
-            Effective Pressure:\t{pipe.properties.effective_pressure:.2f}  
-            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f}
+        if pipe.properties.remaining_life:
+            analysis = f"""
+            Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
+            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa  
+            Remaining Life:\t{pipe.properties.remaining_life:.2f} days
+            """
+        else:
+            analysis = f"""
+            Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
+            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa
             """
 
         evaluation = f"""

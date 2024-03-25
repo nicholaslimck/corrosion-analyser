@@ -101,6 +101,7 @@ class Properties:
     pressure_resistance: float = None
     effective_pressure: float = None
     maximum_allowable_defect_depth: pd.DataFrame = None
+    remaining_life: float = None
 
 
 class Pipe:
@@ -289,7 +290,7 @@ class Pipe:
 
         self.properties.maximum_allowable_defect_depth = limits
 
-    def estimate_remaining_life(self, r_corr: float = None, r_corr_length: float = None):
+    def estimate_remaining_life(self):
         """
         Estimate the remaining life of the pipe based on the current defect and loading based on 2.9.2
 
@@ -303,20 +304,57 @@ class Pipe:
         Returns:
 
         """
-        d_0 = self.defect.depth
-        l_0 = self.defect.length
+        d_0 = self.defects[1].relative_depth
+        l_0 = self.defects[1].length
 
-        d_t = 0  # Use failure depth
-        l_t = 0  # Use failure length
+        r_corr, r_corr_length = self.calculate_corrosion_rate()
 
-        # d_t = d_0 + T * r_corr
+        # Find the point where the defect depth and length reach the maximum allowable defect depth/length
+        d_t = d_0
+        l_t = l_0
+        failure = False
+        filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
+            self.properties.maximum_allowable_defect_depth['defect_length'] > l_t
+        ]
+        while not failure:
+            d_t += r_corr
+            l_t += r_corr_length
+
+            for row in filtered_allowable_depth.itertuples():
+                if l_t >= row.defect_length and d_t >= row.defect_depth:
+                    failure = True
+                    break
+
         remaining_life_depth = (d_t - d_0) / r_corr
-        if r_corr_length:
-            # l_t = l_0 + T * r_corr_length
-            remaining_life_length = (l_t - l_0) / r_corr_length
-        else:
-            # l_t = l_0 * (l + (T*r_corr)/d_0)
-            remaining_life_length = (d_0 * (l_t/l_0 - l)) / r_corr
+        remaining_life_length = (l_t - l_0) / r_corr_length
 
-        remaining_life = min(remaining_life_depth, remaining_life_length)
+        self.properties.remaining_life = min(remaining_life_depth, remaining_life_length)
+
+    def calculate_corrosion_rate(self) -> tuple[float, float]:
+        """
+        Calculate the corrosion rate of the pipe based on the defects
+        Returns:
+            corrosion_rate_depth: Depth corrosion rate in days
+            corrosion_rate_length: Length corrosion rate in days
+        """
+        if len(self.defects) < 2:
+            raise ValueError("Multiple defects required to calculate corrosion rate")
+        d_0 = self.defects[0].depth
+        d_1 = self.defects[1].depth
+
+        l_0 = self.defects[0].length
+        l_1 = self.defects[1].length
+
+        ts_0 = self.defects[0].measurement_timestamp
+        ts_1 = self.defects[1].measurement_timestamp
+        d_ts = ts_1 - ts_0
+
+        if d_ts == 0:
+            raise ValueError("Timestamps must be different to calculate corrosion rate")
+
+        r_corr_depth = 86400 * (d_1 - d_0) / d_ts
+        r_corr_length = 86400 * (l_1 - l_0) / d_ts
+
+        return r_corr_depth, r_corr_length
+
 
