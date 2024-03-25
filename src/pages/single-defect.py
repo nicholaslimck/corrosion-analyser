@@ -169,6 +169,53 @@ def layout():
         ]
     )
 
+    secondary_defect_input_fields = [
+        {'Parameter': 'Defect Length', 'Value': '', 'Unit': 'mm'},
+        {'Parameter': 'Defect Width', 'Value': '', 'Unit': 'mm'},
+        {'Parameter': 'Defect Depth', 'Value': '', 'Unit': 't'},
+    ]
+
+    collapse = html.Div(
+        [
+            dbc.Button(
+                "Secondary defect",
+                id="secondary_defect_collapse_button",
+                className="mb-3",
+                color="primary",
+                n_clicks=0,
+                style={"margin-top": "10px"}
+            ),
+            dbc.Collapse(
+                [
+                    dbc.Row(
+                        dash_table.DataTable(
+                            id='single_defect_secondary_input_table',
+                            columns=[
+                                {'name': 'Parameter', 'id': 'Parameter', 'editable': False},
+                                {'name': 'Value', 'id': 'Value', 'editable': True},
+                                {'name': 'Unit', 'id': 'Unit', 'editable': False}],
+                            data=secondary_defect_input_fields,
+                            # fill_width=False,
+                            style_cell_conditional=[
+                                {
+                                    'if': {'column_id': 'Parameter'},
+                                    'textAlign': 'left'
+                                }
+                            ],
+                            style_data={
+                                'whiteSpace': 'normal',
+                                'height': 'auto',
+                            }
+                        )
+                    ),
+                    # dbc.Card(dbc.CardBody("This content is hidden in the collapse"))
+                ],
+                id="secondary_defect_collapse",
+                is_open=False,
+            ),
+        ]
+    )
+
     input_layout = dbc.Row(
         [
             dbc.Row(dbc.Col(html.H2('Input Parameters'))),
@@ -204,9 +251,11 @@ def layout():
                 ], style=center_align_style
             ),
             dbc.Row(dbc.Col(input_table, style=center_align_style)),
+            dbc.Row(dbc.Col(collapse, style=center_align_style)),
             dbc.Row(dbc.Col(
                 [
-                    dbc.Button(children='Calculate', id='single_defect_table_analyse', style={"margin-top": "10px"}),
+                    dbc.Button(children='Calculate', id='single_defect_table_analyse',
+                               style={"margin-top": "10px", "margin-bottom": "10px"}),
                     dcc.Markdown(id='single_defect_table_analysis')
                 ]
             )),
@@ -248,7 +297,7 @@ def layout():
     return combined_layout
 
 
-def create_pipe(pipe_data: dict) -> models.Pipe:
+def create_pipe(pipe_data: dict, calculate_allowable_depth: bool = True) -> models.Pipe:
     diameter = pipe_data['Pipe Outer Diameter']['Value']
     wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
     smts = pipe_data['SMTS']['Value']
@@ -273,15 +322,17 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
         'measurement_method': measurement_method
     }
 
-    defect_length = pipe_data['Defect Length']['Value']
-    defect_width = pipe_data['Defect Width']['Value']
-    defect_depth = float(pipe_data['Defect Depth']['Value'])
-    defect_elevation = pipe_data['Defect Elevation']['Value']
     defect_config = {
-        'length': defect_length,
-        'width': defect_width,
-        "relative_depth" if pipe_data['Defect Depth']['Unit'] == "t" else "depth": defect_depth,
-        'elevation': defect_elevation
+        'length': pipe_data['Defect Length']['Value'],
+        'width': pipe_data['Defect Width']['Value'],
+        "relative_depth" if pipe_data['Defect Depth']['Unit'] == "t" else "depth": pipe_data['Defect Depth']['Value'],
+        'elevation': pipe_data['Defect Elevation']['Value']
+    }
+    secondary_defect_config = {
+        'length': pipe_data['Secondary Defect Length']['Value'],
+        'width': pipe_data['Secondary Defect Width']['Value'],
+        "relative_depth" if pipe_data['Secondary Defect Depth']['Unit'] == "t" else "depth": pipe_data['Secondary Defect Depth']['Value'],
+        'elevation': pipe_data['Defect Elevation']['Value']
     }
 
     seawater_density = pipe_data['Seawater Density']['Value']
@@ -295,7 +346,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
 
     combined_stress = pipe_data['Combined Stress']['Value']
     if combined_stress:
-        if not defect_width:
+        if not defect_config['width']:
             raise ValueError('Defect Width is required for stress calculations.')
         loading_config = {
             'combined_stress': combined_stress
@@ -308,6 +359,10 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     environment = models.Environment(**environment_config)
 
     pipe.add_defect(defect)
+    if secondary_defect_config['length']:
+        secondary_defect = models.Defect(**secondary_defect_config)
+        pipe.add_defect(secondary_defect)
+
     if loading_config:
         pipe.add_loading(**loading_config)
     pipe.set_environment(environment)
@@ -316,8 +371,9 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
 
-    # Calculate maximum allowable defect depth
-    pipe.calculate_maximum_allowable_defect_depth()
+    if calculate_allowable_depth:
+        # Calculate maximum allowable defect depth
+        pipe.calculate_maximum_allowable_defect_depth()
 
     return pipe
 
@@ -333,25 +389,38 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     Output(component_id="single_defect_input_error_modal_body", component_property="children"),
     Input(component_id='single_defect_table_analyse', component_property='n_clicks'),
     State(component_id='single_defect_input_table', component_property='data'),
-    State(component_id='single_defect_select_safety_class', component_property='value')
+    State(component_id='single_defect_select_safety_class', component_property='value'),
+    State(component_id='single_defect_secondary_input_table', component_property='data')
 )
 def calculate_pipe_characteristics(
         trigger_update,
         data,
-        safety_class
+        safety_class,
+        secondary_data
 ):
+    def set_dtypes(table_data):
+        for item in table_data:
+            if item['Value'] == '':
+                item['Value'] = None
+            else:
+                try:
+                    item['Value'] = float(item['Value'])
+                except (ValueError, TypeError):
+                    pass
+        return table_data
+
     start_time = time.time()
 
     data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
-    for item in data:
-        if item['Value'] == '':
-            item['Value'] = None
-        else:
-            try:
-                item['Value'] = float(item['Value'])
-            except (ValueError, TypeError):
-                pass
+    data = set_dtypes(data)
+
     data_dict = {item['Parameter']: {"Value": item['Value'], "Unit": item['Unit']} for item in data}
+
+    secondary_data = set_dtypes(secondary_data)
+    secondary_data_dict = {f"Secondary {item['Parameter']}": {"Value": item['Value'], "Unit": item['Unit']} for item in secondary_data}
+    # secondary_data_dict = data_dict | secondary_data_dict
+    data_dict = data_dict | secondary_data_dict
+
     error_encountered = False
     error = ''
 
@@ -392,26 +461,34 @@ def calculate_pipe_characteristics(
 
 @callback(
     Output(component_id='single_defect_input_table', component_property='data'),
+    Output(component_id='single_defect_secondary_input_table', component_property='data'),
     Input(component_id='single_defect_select_measurement', component_property='value'),
-    State(component_id='single_defect_input_table', component_property='data')
+    State(component_id='single_defect_input_table', component_property='data'),
+    State(component_id='single_defect_secondary_input_table', component_property='data'),
+    prevent_initial_call=True
 )
-def update_measurement_method(measurement: str, data: dict):
+def update_measurement_method(measurement: str, main_data: dict, secondary_data: dict):
     """
     Updates the input table to reflect the selected measurement method
     Args:
         measurement: 'relative' or 'absolute'
-        data: input table data
+        main_data: main input table data
+        secondary_data: secondary input table data
 
     Returns:
 
     """
     if measurement == 'relative':
-        data[5]['Unit'] = 't'
-        data[10]['Unit'] = ''
+        main_data[5]['Unit'] = 't'
+        main_data[10]['Unit'] = ''
+
+        secondary_data[2]['Unit'] = 't'
     else:
-        data[5]['Unit'] = 'mm'
-        data[10]['Unit'] = 'mm'
-    return data
+        main_data[5]['Unit'] = 'mm'
+        main_data[10]['Unit'] = 'mm'
+
+        secondary_data[2]['Unit'] = 'mm'
+    return main_data, secondary_data
 
 
 @callback(
@@ -445,3 +522,14 @@ def sanitise_stress_values(timestamp: str, rows: dict):
                 row['Value'] = -1 * abs(float(row['Value']))
 
     return rows
+
+
+@callback(
+    Output("secondary_defect_collapse", "is_open"),
+    [Input("secondary_defect_collapse_button", "n_clicks")],
+    [State("secondary_defect_collapse", "is_open")],
+)
+def toggle_collapse(n, is_open):
+    if n:
+        return not is_open
+    return is_open
