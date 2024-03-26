@@ -461,17 +461,11 @@ def calculate_pipe_characteristics(
         fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
         fig3 = single_defect.generate_defect_cross_section_plot(pipe)
 
+        analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
+        Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
+
         if pipe.properties.remaining_life:
-            analysis = f"""
-            Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
-            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa  
-            Remaining Life:\t{pipe.properties.remaining_life:.2f} days
-            """
-        else:
-            analysis = f"""
-            Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
-            Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa
-            """
+            analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"
 
         evaluation = f"""
         Effective Pressure {pipe.properties.effective_pressure:.2f} MPa 

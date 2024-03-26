@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -314,33 +315,37 @@ class Pipe:
         l_t = l_0
         failure = False
         filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
-            self.properties.maximum_allowable_defect_depth['defect_length'] > l_t
+            (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
+            (self.properties.maximum_allowable_defect_depth['defect_depth'] > d_t)
         ]
+
         while not failure:
             d_t += r_corr
             l_t += r_corr_length
 
             for row in filtered_allowable_depth.itertuples():
-                if l_t >= row.defect_length and d_t >= row.defect_depth:
-                    failure = True
-                    break
+                if math.isclose(l_t, row.defect_length, abs_tol=0.5):
+                    if d_t >= row.defect_depth:
+                        failure = True
+                        break
+                    else:
+                        break
 
-        remaining_life_depth = (d_t - d_0) / r_corr
-        remaining_life_length = (l_t - l_0) / r_corr_length
+        remaining_life = (d_t - d_0) / r_corr
 
-        self.properties.remaining_life = min(remaining_life_depth, remaining_life_length)
+        self.properties.remaining_life = remaining_life
 
     def calculate_corrosion_rate(self) -> tuple[float, float]:
         """
         Calculate the corrosion rate of the pipe based on the defects
         Returns:
-            corrosion_rate_depth: Depth corrosion rate in days
-            corrosion_rate_length: Length corrosion rate in days
+            corrosion_rate_depth: Depth corrosion rate per day
+            corrosion_rate_length: Length corrosion rate per day
         """
         if len(self.defects) < 2:
             raise ValueError("Multiple defects required to calculate corrosion rate")
-        d_0 = self.defects[0].depth
-        d_1 = self.defects[1].depth
+        d_0 = self.defects[0].relative_depth
+        d_1 = self.defects[1].relative_depth
 
         l_0 = self.defects[0].length
         l_1 = self.defects[1].length
