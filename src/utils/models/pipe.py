@@ -212,7 +212,7 @@ class Pipe:
                     defect_length=defect.length,
                     defect_relative_depth_measured=defect.relative_depth,
                     relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
-                    defect_width=self.defect.width,
+                    defect_width=defect.width,
                     f_u=self.material_properties.f_u,
                     sigma_l=self.loading.loading_stress,
                     phi=self.loading.usage_factor,
@@ -305,14 +305,21 @@ class Pipe:
         Returns:
 
         """
+        if self.properties.pressure_resistance < self.properties.effective_pressure:
+            logger.info('Pipe has already failed, skipping remaining life calculation')
+            self.properties.remaining_life = 0
+            return False
+
         d_0 = self.defects[1].relative_depth
         l_0 = self.defects[1].length
+        w_0 = self.defects[1].width
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
         # Find the point where the defect depth and length reach the maximum allowable defect depth/length
         d_t = d_0
         l_t = l_0
+        w_t = w_0
         failure = False
         filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
             (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
@@ -344,14 +351,19 @@ class Pipe:
         """
         if len(self.defects) < 2:
             raise ValueError("Multiple defects required to calculate corrosion rate")
+
+        # Get defect measurements for first defect
         d_0 = self.defects[0].relative_depth
-        d_1 = self.defects[1].relative_depth
-
         l_0 = self.defects[0].length
-        l_1 = self.defects[1].length
-
+        w_0 = self.defects[0].width
         ts_0 = self.defects[0].measurement_timestamp
+
+        # Get defect measurements for second defect
+        d_1 = self.defects[1].relative_depth
+        l_1 = self.defects[1].length
+        w_1 = self.defects[1].width
         ts_1 = self.defects[1].measurement_timestamp
+
         d_ts = ts_1 - ts_0
 
         if d_ts == 0:
@@ -359,6 +371,8 @@ class Pipe:
 
         r_corr_depth = 86400 * (d_1 - d_0) / d_ts
         r_corr_length = 86400 * (l_1 - l_0) / d_ts
+        if all([w_0, w_1]):
+            r_corr_width = 86400 * (w_1 - w_0) / d_ts
 
         return r_corr_depth, r_corr_length
 

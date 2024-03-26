@@ -464,7 +464,7 @@ def calculate_pipe_characteristics(
         analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
         Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
 
-        if pipe.properties.remaining_life:
+        if pipe.properties.remaining_life is not None:
             analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"
 
         evaluation = f"""
