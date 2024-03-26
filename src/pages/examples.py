@@ -6,8 +6,10 @@ from dash import dcc, html, callback
 from dash.dependencies import Input, Output
 from loguru import logger
 
+from src.utils.layout import center_align_style
 from src.utils import models
-from src.utils.graphing.single_defect import generate_defect_depth_plot, generate_cross_section_defect_combo_plot, generate_pipe_properties_table
+from src.utils.graphing.single_defect import (generate_defect_depth_plot, generate_defect_cross_section_plot, generate_pipe_cross_section_plot,
+                                              generate_pipe_properties_table)
 
 dash.register_page(__name__)
 
@@ -30,18 +32,6 @@ def layout():
                     )
                 )
             ),
-            # dbc.Row(
-            #     dbc.Col(
-            #         html.Div(
-            #             children=[
-            #                 'Select Example',
-            #                 dcc.RadioItems(
-            #                     options=['Example A.1-1', 'Example A.1-2', 'Example A.1-3'],
-            #                     value='Example A.1-1',
-            #                     id='example-selector')],
-            #             style={'display': 'inline-block'}),
-            #     )
-            # ),
             html.Div(
                 children=[
                     html.Div(
@@ -59,21 +49,22 @@ def layout():
             html.H3('Remaining Life Assessment'),
 
             # dcc.Loading(
-            dbc.Row([
-                dbc.Col(
-                    dcc.Loading(
-                        dcc.Graph(
-                            id='example_defect_graph',
-                            style={'display': 'inline-block', 'width': '70vw'}), type='default')),
-                dbc.Col(
-                    dcc.Loading(
-                        dcc.Graph(
-                            id='example_pipe_graph',
-                            style={'display': 'inline-block', 'width': '15vw'}), type='default'))
-            ]),
-            #     type='graph'
-            # ),
-            html.Div(id='example_evaluation')
+
+            dbc.Row(
+                children=[
+                    dbc.Row(dbc.Col(html.H3('Remaining Life Assessment', style={"text-align": "center"}))),
+                    dbc.Row(dbc.Col(dcc.Loading(dcc.Graph(id='example_defect_graph')), xs=12, md=10),
+                            justify='center'),
+                    dbc.Row([
+                        dbc.Col(dcc.Loading(dcc.Graph(id='example_pipe_cross_section_graph')), xs=12, sm=10,
+                                md=5),
+                        dbc.Col(dcc.Loading(dcc.Graph(id='example_defect_cross_section_graph')), xs=12, sm=10,
+                                md=5)
+                    ], justify='center'),
+                    dbc.Row(dbc.Col(dcc.Markdown(id='example_evaluation', style={"text-align": "center"})))
+                ],
+                style={"margin-top": "15px", **center_align_style}
+            )
         ],
         style={"padding": "10px 10px"}
     )
@@ -113,6 +104,7 @@ def example_a_1_1():
     # Calculate p_corr
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
+    pipe.calculate_maximum_allowable_defect_depth()
     return pipe
 
 
@@ -150,6 +142,7 @@ def example_a_1_2():
     # Calculate p_corr
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
+    pipe.calculate_maximum_allowable_defect_depth()
     return pipe
 
 
@@ -189,13 +182,15 @@ def example_a_1_3():
     # Calculate p_corr
     pipe.calculate_pressure_resistance()
     pipe.calculate_effective_pressure()
+    pipe.calculate_maximum_allowable_defect_depth()
     return pipe
 
 
 # Add controls to build the interaction
 @callback(
     Output(component_id='example_defect_graph', component_property='figure'),
-    Output(component_id='example_pipe_graph', component_property='figure'),
+    Output(component_id='example_pipe_cross_section_graph', component_property='figure'),
+    Output(component_id='example_defect_cross_section_graph', component_property='figure'),
     Output(component_id='example_description', component_property='children'),
     Output(component_id='example_evaluation', component_property='children'),
     Input(component_id='example-selector', component_property='value')
@@ -211,8 +206,9 @@ def update_graph(example_selected):
     else:
         raise ValueError('Unsupported selection')
     fig_defect_assessment = generate_defect_depth_plot(pipe)
-    fig_pipe = generate_cross_section_defect_combo_plot(pipe)
-    table = generate_pipe_properties_table(pipe)
+    fig_pipe_cross_section = generate_pipe_cross_section_plot(pipe)
+    fig_defect_cross_section = generate_defect_cross_section_plot(pipe)
+
     description = [
         f"""Pipe Dimensions:
             Outside Diameter:      {pipe.dimensions.outside_diameter} mm
@@ -250,12 +246,14 @@ def update_graph(example_selected):
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f} N/mm^2
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f} N/mm^2
         """)
-    evaluation = f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa " \
-                 f"{'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} " \
-                 f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa. " \
-                 f"Corrosion is {'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}."
+    evaluation = f"""
+            Effective Pressure {pipe.properties.effective_pressure:.2f} MPa 
+            {'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} 
+            Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  
+            Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
+            """
     description = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                    for contents in description]
     logger.info(f"Loaded {example_selected} | Time elapsed: {time.time() - start_time:.2f}s")
-    return fig_defect_assessment, fig_pipe, description, evaluation
+    return fig_defect_assessment, fig_pipe_cross_section, fig_defect_cross_section, description, evaluation
