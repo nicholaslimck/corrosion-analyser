@@ -1,5 +1,3 @@
-import math
-from datetime import datetime
 from dataclasses import dataclass, field
 
 from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,

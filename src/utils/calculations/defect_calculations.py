@@ -44,9 +44,9 @@ def calculate_relative_defect_depth_with_inaccuracies(
     Calculate the Relative Measured Defect Depth accounting for measurement inaccuracies as defined in Section 3.7.3.1
     (d/t)* = (d/t)meas + epsilon_d * StD[d/t]
     Args:
-        d_t_meas:
-        epsilon_d:
-        st_dev:
+        d_t_meas: Measured defect depth
+        epsilon_d: Factor for defining a fractile value for corrosion depth
+        st_dev: Standard deviation of the measured defect depth
     Returns:
         (d/t)*: Relative Measured Defect Depth, adjusted for measurement inaccuracies
     """

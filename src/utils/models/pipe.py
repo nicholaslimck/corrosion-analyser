@@ -62,9 +62,9 @@ class SafetyFactors:
     safety_class: str
     inspection_method: str
     measurement_accuracy: float
-    gamma_m: float = field(init=False)
-    gamma_d: float = field(init=False)
-    epsilon_d: float = field(init=False)
+    gamma_m: float = field(init=False)  # Partial safety factor for longitudinal corrosion model projection
+    gamma_d: float = field(init=False)  # Partial safety factor for corrosion depth
+    epsilon_d: float = field(init=False)  # Factor for defining a fractile value for corrosion depth
 
     def __post_init__(self):
         logger.debug("Calculating partial safety factors")

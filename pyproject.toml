@@ -3,6 +3,7 @@ name = "corrosion-analyser"
 version = "0.1.0"
 description = "Analyse corroded pipelines and assess the integrity and remaining life as per DNV-RP-F101"
 authors = ["Nicholas Lim <nicholaslimck@gmail.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.12"
