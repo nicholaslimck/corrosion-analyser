@@ -118,6 +118,14 @@ def calculate_partial_safety_factors(safety_class, inspection_method, inspection
 
 
 def calculate_usage_factors(safety_class: str) -> float:
+    """
+    Calculates the usage factors for longitudinal stress (xi) based off the safety class as stated in Table 3-10
+    Args:
+        safety_class: low/medium/high/very_high
+
+    Returns:
+        usage_factor: xi
+    """
     if safety_class == 'low':
         return 0.9
     elif safety_class == 'medium':
@@ -126,3 +134,5 @@ def calculate_usage_factors(safety_class: str) -> float:
         return 0.8
     elif safety_class == 'very_high':
         return 0.75
+    else:
+        raise ValueError(f"Invalid safety class provided: {safety_class}")
