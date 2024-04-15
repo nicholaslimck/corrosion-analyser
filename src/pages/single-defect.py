@@ -266,7 +266,7 @@ def layout():
             dbc.Row(dbc.Col(collapse, style=center_align_style)),
             dbc.Row(dbc.Col(
                 [
-                    dbc.Button(children='Calculate', id='single_defect_table_analyse',
+                    dbc.Button(children='Analyse', id='single_defect_table_analyse',
                                style={"margin-top": "10px", "margin-bottom": "10px"}),
                     dcc.Markdown(id='single_defect_table_analysis')
                 ]
