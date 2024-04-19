@@ -1,7 +1,7 @@
 # Builder image
 FROM python:3.11 as builder
 
-RUN pip install poetry==1.5.1
+RUN pip install poetry==1.8.2
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
