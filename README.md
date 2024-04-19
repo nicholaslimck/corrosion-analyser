@@ -21,7 +21,7 @@ Corrosion analyser is a web application that allows users to quickly analyse the
 4. The results will be displayed below the input form
 
 ## Deploy
-The application can be accessed [here](https://corrosion-analyser.lichkain.link).
+The application can be accessed [here](https://corrosion-analyser.onrender.com/).
 
 ### Local Development
 1. Clone the repository
