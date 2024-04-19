@@ -23,4 +23,6 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 COPY src ./src
 
+ENV DOCKER=true
+
 ENTRYPOINT ["python", "-m", "src.app"]
