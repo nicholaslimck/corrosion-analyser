@@ -9,7 +9,7 @@ from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
-from src.utils.graphing import single_defect
+from src.utils.graphing import interacting_defects
 from src.utils.layout import center_align_style
 
 dash.register_page(__name__)
@@ -457,9 +457,9 @@ def calculate_pipe_characteristics(
         pipe = create_pipe(data_dict)
 
         # Generate figures
-        fig1 = single_defect.generate_defect_depth_plot(pipe)
-        fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
-        fig3 = single_defect.generate_defect_cross_section_plot(pipe)
+        fig1 = interacting_defects.generate_defect_depth_plot(pipe)
+        fig2 = interacting_defects.generate_pipe_cross_section_plot(pipe)
+        fig3 = interacting_defects.generate_defect_cross_section_plot(pipe)
 
         analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
         Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
