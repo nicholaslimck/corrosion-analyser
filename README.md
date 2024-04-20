@@ -24,10 +24,12 @@ Corrosion analyser is a web application that allows users to quickly analyse the
 The application can be accessed [here](https://corrosion-analyser.onrender.com/).
 
 ### Local Development
-1. Clone the repository
-2. Install the dependencies using `poetry install`
-3. Run the application using `poetry run python -m src.app`
-4. Open the browser and navigate to [http://localhost:8050](http://localhost:8050)
+1. Clone the repository and navigate to the project directory
+2. Install Python 3.11
+3. Install [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer)
+4. Install the dependencies using `poetry install`
+5. Run the application using `poetry run python -m src.app`
+6. Open the browser and navigate to [http://localhost:8050](http://localhost:8050)
 
 ### Run with Docker
 ```shell
@@ -37,7 +39,7 @@ docker run --name corrosion-analyser -p 8050:8050 nicholaslimck/corrosion-analys
 After the container is deployed, open the browser and navigate to [http://localhost:8050](http://localhost:8050)
 
 ### Run with Docker Compose
-Download docker-compose.yml into your private server:
+Download docker-compose.yml into your local machine:
 ```shell
 curl https://raw.githubusercontent.com/nicholaslimck/corrosion-analyser/main/docker-compose.yml > docker-compose.yml
 ```
