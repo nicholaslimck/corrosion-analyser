@@ -285,7 +285,7 @@ def layout():
 
     graphs_layout = dbc.Row(
         children=[
-            dbc.Row(dbc.Col(html.H3('Remaining Life Assessment', style={"text-align": "center"}))),
+            dbc.Row(dbc.Col(html.H3('Corrosion Assessment', style={"text-align": "center"}))),
             dbc.Row(dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), xs=12, md=10), justify='center'),
             dbc.Row([
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), xs=12, sm=10, md=5),

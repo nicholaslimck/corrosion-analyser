@@ -165,8 +165,8 @@ def example_a_1_3():
     defect = models.Defect(
         length=200.0,
         width=100.0,
-        relative_depth=0.56,
-        elevation=-200
+        relative_depth=0.62,
+        elevation=-100
     )
 
     environment = models.Environment(

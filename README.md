@@ -143,6 +143,7 @@ classDiagram
         +float design_temperature
         +float incidental_to_design_pressure_ratio
     }
+    Pipe <-- DesignLimits
     class MeasurementFactors{
         +float accuracy
         +string measurement_method
@@ -150,7 +151,7 @@ classDiagram
         +float wall_thickness
         +float standard_deviation
     }
-    MeasurementFactors --> Pipe
+    Pipe <-- MeasurementFactors
     class SafetyFactors{
         +string safety_class
         +string inspection_method
@@ -159,12 +160,12 @@ classDiagram
         +float gamma_d
         +float epsilon_d
     }
-    SafetyFactors --> Pipe
+    Pipe <-- SafetyFactors
     class UsageFactors{
         +string safety_class
         +float xi
     }
-    UsageFactors --> Pipe
+    Pipe <-- UsageFactors
     class Loading{
         +float usage_factor
         +float axial_stress
