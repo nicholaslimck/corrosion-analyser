@@ -174,6 +174,7 @@ def layout():
         {'Parameter': 'Defect Length', 'Value': '', 'Unit': 'mm'},
         {'Parameter': 'Defect Width', 'Value': '', 'Unit': 'mm'},
         {'Parameter': 'Defect Depth', 'Value': '', 'Unit': 't'},
+        {'Parameter': 'Defect Separation', 'Value': '', 'Unit': 'mm'}
     ]
 
     collapse = html.Div(
@@ -337,8 +338,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     defect_config = {
         'length': pipe_data['Defect Length']['Value'],
         'width': pipe_data['Defect Width']['Value'],
-        "relative_depth" if pipe_data['Defect Depth']['Unit'] == "t" else "depth": pipe_data['Defect Depth']['Value'],
-        'elevation': pipe_data['Defect Elevation']['Value']
+        "relative_depth" if pipe_data['Defect Depth']['Unit'] == "t" else "depth": pipe_data['Defect Depth']['Value']
     }
     secondary_defect_config = {
         'length': pipe_data['Secondary Defect Length']['Value'],
@@ -359,7 +359,8 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     environment_config = {
         'seawater_density': seawater_density,
         'containment_density': containment_density,
-        'elevation_reference': elevation_reference
+        'elevation_reference': elevation_reference,
+        'elevation': pipe_data['Defect Elevation']['Value']
     }
 
     combined_stress = pipe_data['Combined Stress']['Value']

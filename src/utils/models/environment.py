@@ -6,7 +6,7 @@ class Environment:
     seawater_density: float
     containment_density: float
     elevation_reference: float
-    elevation: float = field(init=False)
+    elevation: float
     external_pressure: float = field(init=False)
     incidental_pressure: float = field(init=False)
 

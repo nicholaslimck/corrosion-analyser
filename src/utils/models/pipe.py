@@ -181,10 +181,8 @@ class Pipe:
     def set_environment(self, environment):
         logger.info(f"Setting environment")
         self.environment = environment
-        if self.defect:
-            self.environment.elevation = self.defect.elevation
-            self.environment.calculate_external_pressure()
-            self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
+        self.environment.calculate_external_pressure()
+        self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')

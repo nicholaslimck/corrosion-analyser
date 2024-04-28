@@ -7,7 +7,6 @@ from src.utils.calculations.defect_calculations import (calculate_length_correct
 @dataclass
 class Defect:
     length: float                                   # Defect length in mm
-    elevation: float                                # Defect elevation in m
     width: float = None                             # Defect width in mm
     depth: float = None                             # Defect depth in mm
     relative_depth: float = None                    # Relative defect depth as measured
