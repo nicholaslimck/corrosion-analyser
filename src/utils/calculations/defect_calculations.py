@@ -247,9 +247,11 @@ def calculate_combined_depth(defects: list, measurement_method: str):
     return combined_depth
 
 
-def verify_interaction(separation: float, pipe_diameter, pipe_thickness):
+def verify_interaction(defects: list, pipe_diameter, pipe_thickness):
+    separation = defects[1].position - defects[0].position
     minimum_length = 5.0 * sqrt(pipe_diameter * pipe_thickness)
-    if separation < minimum_length:
+    minimum_overlap = 2.5 * sqrt(pipe_diameter * pipe_thickness)
+    if separation + sum([defect.length for defect in defects]) < minimum_length:
         return True
     else:
         return False

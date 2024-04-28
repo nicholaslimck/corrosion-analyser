@@ -359,8 +359,10 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
 
         defect_config['measurement_timestamp'] = first_timestamp
         secondary_defect_config['measurement_timestamp'] = second_timestamp
-    if pipe_data['Secondary Defect Separation']['Value']:
-        secondary_defect_config['position'] = pipe_data['Secondary Defect Separation']['Value']
+
+    secondary_defect_separation = pipe_data['Secondary Defect Separation']['Value']
+    if secondary_defect_separation:
+        secondary_defect_config['position'] = secondary_defect_separation
 
     # Configure environment
     seawater_density = pipe_data['Seawater Density']['Value']
@@ -375,6 +377,8 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
 
     combined_stress = pipe_data['Combined Stress']['Value']
     if combined_stress:
+        if secondary_defect_separation:
+            raise ValueError('Interacting defects are not supported with superimposed stress.')
         if not defect_config['width']:
             raise ValueError('Defect Width is required for stress calculations.')
         loading_config = {
@@ -474,8 +478,11 @@ def calculate_pipe_characteristics(
 
         analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
         Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
-        if len(pipe.defects) == 3:
-            analysis += "  \nDefect interaction found"
+        if any([defect.position for defect in pipe.defects]):
+            if len(pipe.defects) == 3:
+                analysis += "  \nDefect interaction found"
+            else:
+                analysis += "  \nNo defect interaction found"
 
         if pipe.properties.remaining_life is not None:
             analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"

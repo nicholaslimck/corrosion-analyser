@@ -193,9 +193,8 @@ class Pipe:
         # Interacting Defects
         if any(defect.position for defect in self.defects):
             logger.info('Defect separation detected, checking for interaction')
-            separation = self.defects[1].position - self.defects[0].position
             if verify_interaction(
-                    separation=separation,
+                    defects=self.defects,
                     pipe_diameter=self.dimensions.outside_diameter,
                     pipe_thickness=self.dimensions.wall_thickness
             ):
