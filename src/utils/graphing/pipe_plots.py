@@ -64,30 +64,39 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     Returns:
         fig: Figure
     """
-    outer_diameter = pipe.dimensions.outside_diameter
-    inner_diameter = pipe.dimensions.outside_diameter - 2 * pipe.dimensions.wall_thickness
     thickness = pipe.dimensions.wall_thickness
+    longest_defect = max([defect.length for defect in pipe.defects])
+    if len(pipe.defects) > 1:
+        position_range = pipe.defects[0].length + pipe.defects[1].length + pipe.defects[0].position + pipe.defects[1].position
+    else:
+        position_range = pipe.defects[0].length
 
     fig = go.Figure()
-    # Set up defect cross-section subplot
+    # Create pipe shape
     fig.add_shape(
         type="rect",
         fillcolor="LightSeaGreen",
         xref="x", yref="y",
         x0=-10, y0=0,
-        x1=pipe.defect.length * 2.05, y1=thickness,
+        x1=position_range * 2.05, y1=thickness,
         label=dict(text=f"Wall Thickness: {thickness:.2f}", font=dict(color="White"))
     )
-    fig.add_shape(
-        type="rect",
-        fillcolor="LightSalmon",
-        xref="x", yref="y",
-        x0=pipe.defect.length * 0.5, y0=pipe.dimensions.wall_thickness - pipe.defect.depth,
-        x1=pipe.defect.length * 1.5, y1=pipe.dimensions.wall_thickness,
-        opacity=0.6,
-        label=dict(text=f"Defect Depth: {pipe.defect.depth:.2f}", font=dict(color="White"))
-    )
-    fig.update_xaxes(range=[0, pipe.defect.length * 2], fixedrange=True)
+    # Add defect shapes
+    for index, defect in enumerate(pipe.defects):
+        if index == 1:
+            x0 = position_range * 0.5 + pipe.defects[0].length + defect.position
+        else:
+            x0 = position_range * 0.5
+        fig.add_shape(
+            type="rect",
+            fillcolor="LightSalmon",
+            xref="x", yref="y",
+            x0=x0, y0=pipe.dimensions.wall_thickness - defect.depth,
+            x1=x0 + defect.length, y1=pipe.dimensions.wall_thickness,
+            opacity=0.6,
+            label=dict(text=f"Defect Depth: {defect.depth:.2f}", font=dict(color="White"))
+        )
+    fig.update_xaxes(range=[0, position_range * 2], fixedrange=True)
     fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05],
                      fixedrange=True)
 

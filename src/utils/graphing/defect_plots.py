@@ -19,22 +19,22 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
 
     # Plot figure
     fig = px.line(
-        limits, x='defect_length', y='defect_depth',
+        limits, x='defect_length', y='defect_relative_depth',
         color_discrete_sequence=['red'],
         labels={
             'defect_length': 'Corrosion Defect Length (mm)',
-            'defect_depth': 'Allowable Measured Relative Depth (d/t)'
+            'defect_relative_depth': 'Allowable Measured Relative Depth (d/t)'
         },
         range_y=[0, 1.0], range_x=[0, 1000])
 
     marker_df = pd.DataFrame(
         {
             'defect_length': pipe.defects[0].length,
-            'defect_depth': pipe.defects[0].relative_depth,
+            'defect_relative_depth': pipe.defects[0].relative_depth,
             'pressure_resistance': round(pipe.defects[0].pressure_resistance, 2)
         }, index=[0])
     marker_colour = 'blue' if pipe.properties.effective_pressure <= pipe.defects[0].pressure_resistance else 'red'
-    marker = px.scatter(marker_df, x='defect_length', y='defect_depth', text='pressure_resistance',
+    marker = px.scatter(marker_df, x='defect_length', y='defect_relative_depth', text='pressure_resistance',
                         color_discrete_sequence=[marker_colour])
 
     fig.add_trace(marker.data[0])
@@ -48,11 +48,11 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
         secondary_marker_df = pd.DataFrame(
             {
                 'defect_length': [pipe.defects[1].length],
-                'defect_depth': [pipe.defects[1].relative_depth],
+                'defect_relative_depth': [pipe.defects[1].relative_depth],
                 'pressure_resistance': round(pipe.defects[1].pressure_resistance, 2)
             }, index=[0])
         secondary_marker_colour = 'blue' if pipe.properties.effective_pressure <= pipe.defects[1].pressure_resistance else 'red'
-        secondary_marker = px.scatter(secondary_marker_df, x='defect_length', y='defect_depth',
+        secondary_marker = px.scatter(secondary_marker_df, x='defect_length', y='defect_relative_depth',
                                      text='pressure_resistance',
                                       color_discrete_sequence=[secondary_marker_colour])
 
@@ -65,11 +65,11 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
         tertiary_marker_df = pd.DataFrame(
             {
                 'defect_length': [pipe.defects[2].length],
-                'defect_depth': [pipe.defects[2].relative_depth],
+                'defect_relative_depth': [pipe.defects[2].relative_depth],
                 'pressure_resistance': round(pipe.defects[2].pressure_resistance, 2)
             }, index=[0])
         tertiary_marker_colour = 'blue' if pipe.properties.effective_pressure <= pipe.defects[2].pressure_resistance else 'red'
-        tertiary_marker = px.scatter(tertiary_marker_df, x='defect_length', y='defect_depth',
+        tertiary_marker = px.scatter(tertiary_marker_df, x='defect_length', y='defect_relative_depth',
                                      text='pressure_resistance',
                                      color_discrete_sequence=[tertiary_marker_colour])
 

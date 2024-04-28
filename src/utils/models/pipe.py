@@ -150,12 +150,14 @@ class Pipe:
     def __repr__(self):
         return f"Pipe(D={self.dimensions.outside_diameter}, t={self.dimensions.wall_thickness})"
 
-    def add_defect(self, defect: Defect):
+    def add_defect(self, defect: Defect, stdev: float = None):
         logger.info("Adding defect to pipe")
+        if not stdev:
+            stdev = self.measurement_factors.standard_deviation
         defect.complete_dimensions(self.dimensions.wall_thickness)
         defect.calculate_d_t_adjusted(
             epsilon_d=self.safety_factors.epsilon_d,
-            stdev=self.measurement_factors.standard_deviation
+            stdev=stdev
         )
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
@@ -211,7 +213,10 @@ class Pipe:
                         depth=combined_depth
                     )
 
-                self.add_defect(combined_defect)
+                stdev = (sum([defect.length * self.measurement_factors.standard_deviation for defect in self.defects]) /
+                         combined_length)
+
+                self.add_defect(combined_defect, stdev)
 
         for defect in self.defects:
             if not self.loading:
@@ -278,8 +283,8 @@ class Pipe:
                 )
                 logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
                 if all([relative_depth, length]):
-                    rows.append(pd.DataFrame({'defect_length': length, 'defect_depth': relative_depth}, index=[0]))
-            minimum_values = {'defect_length': 0.0, 'defect_depth': rows[-1]['defect_depth']}
+                    rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
+            minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
             rows.append(pd.DataFrame(minimum_values, index=[0]))
         else:  # Calculate with loading
             target_pressure = self.properties.effective_pressure
@@ -309,7 +314,7 @@ class Pipe:
                 else:
                     defect_depth = 0
                 logger.debug(f"Max depth for defect length {defect_length} = {defect_depth}")
-                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
+                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_depth}, index=[0]))
 
         limits = pd.concat(rows).reset_index(drop=True)
         limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length

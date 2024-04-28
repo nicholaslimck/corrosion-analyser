@@ -299,7 +299,7 @@ def layout():
     combined_layout = dbc.Container(
         children=[
             html.Div(id='display'),
-            dbc.Row(html.H1("Single Defect Analysis"), style={"text-align": "center"}),
+            dbc.Row(html.H1("Defect Analysis"), style={"text-align": "center"}),
             input_layout,
             graphs_layout
         ],
@@ -474,6 +474,8 @@ def calculate_pipe_characteristics(
 
         analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
         Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
+        if len(pipe.defects) == 3:
+            analysis += "  \nDefect interaction found"
 
         if pipe.properties.remaining_life is not None:
             analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"
