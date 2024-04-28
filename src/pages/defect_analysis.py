@@ -3,13 +3,12 @@ import time
 
 import dash
 import dash_bootstrap_components as dbc
-import pandas as pd
 from dash import dcc, html, callback, dash_table, no_update
 from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
-from src.utils.graphing import single_defect
+from src.utils.graphing import defect_plots, pipe_plots
 from src.utils.layout import center_align_style
 
 dash.register_page(__name__)
@@ -311,6 +310,14 @@ def layout():
 
 
 def create_pipe(pipe_data: dict) -> models.Pipe:
+    """
+    Creates a Pipe object from the input data
+    Args:
+        pipe_data:
+
+    Returns:
+        pipe: Pipe object
+    """
     diameter = pipe_data['Pipe Outer Diameter']['Value']
     wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
     smts = pipe_data['SMTS']['Value']
@@ -335,6 +342,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
         'measurement_method': measurement_method
     }
 
+    # Configure defect(s)
     defect_config = {
         'length': pipe_data['Defect Length']['Value'],
         'width': pipe_data['Defect Width']['Value'],
@@ -343,8 +351,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     secondary_defect_config = {
         'length': pipe_data['Secondary Defect Length']['Value'],
         'width': pipe_data['Secondary Defect Width']['Value'],
-        "relative_depth" if pipe_data['Secondary Defect Depth']['Unit'] == "t" else "depth": pipe_data['Secondary Defect Depth']['Value'],
-        'elevation': pipe_data['Defect Elevation']['Value']
+        "relative_depth" if pipe_data['Secondary Defect Depth']['Unit'] == "t" else "depth": pipe_data['Secondary Defect Depth']['Value']
     }
     if pipe_data['First Date']['Value'] and pipe_data['Second Date']['Value']:
         first_timestamp = datetime.datetime.timestamp(datetime.datetime.strptime(pipe_data['First Date']['Value'], '%Y-%m-%d'))
@@ -352,7 +359,10 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
 
         defect_config['measurement_timestamp'] = first_timestamp
         secondary_defect_config['measurement_timestamp'] = second_timestamp
+    if pipe_data['Secondary Defect Separation']['Value']:
+        secondary_defect_config['position'] = pipe_data['Secondary Defect Separation']['Value']
 
+    # Configure environment
     seawater_density = pipe_data['Seawater Density']['Value']
     containment_density = pipe_data['Containment Density']['Value']
     elevation_reference = pipe_data['Elevation Reference']['Value']
@@ -458,9 +468,9 @@ def calculate_pipe_characteristics(
         pipe = create_pipe(data_dict)
 
         # Generate figures
-        fig1 = single_defect.generate_defect_depth_plot(pipe)
-        fig2 = single_defect.generate_pipe_cross_section_plot(pipe)
-        fig3 = single_defect.generate_defect_cross_section_plot(pipe)
+        fig1 = defect_plots.generate_defect_depth_plot(pipe)
+        fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe)
+        fig3 = pipe_plots.generate_defect_cross_section_plot(pipe)
 
         analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
         Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""

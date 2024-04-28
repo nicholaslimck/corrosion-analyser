@@ -7,7 +7,8 @@ from loguru import logger
 
 from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal,
                                                         calculate_max_defect_depth_longitudinal_with_stress,
-                                                        calculate_maximum_defect_length)
+                                                        calculate_maximum_defect_length, calculate_combined_length,
+                                                        calculate_combined_depth, verify_interaction)
 from src.utils.calculations.pressure_calculations import (calculate_pressure_resistance_longitudinal_defect,
                                                           calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.calculations.statistical_calculations import (calculate_std_dev, calculate_partial_safety_factors,
@@ -186,6 +187,32 @@ class Pipe:
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
+
+        # Interacting Defects
+        if any(defect.position for defect in self.defects):
+            logger.info('Defect separation detected, checking for interaction')
+            separation = self.defects[1].position - self.defects[0].position
+            if verify_interaction(
+                    separation=separation,
+                    pipe_diameter=self.dimensions.outside_diameter,
+                    pipe_thickness=self.dimensions.wall_thickness
+            ):
+                logger.info('Defects are interacting, adding combined defect')
+                combined_length = calculate_combined_length(self.defects)
+                combined_depth = calculate_combined_depth(self.defects, self.measurement_factors.measurement_method)
+                if self.measurement_factors.measurement_method == 'relative':
+                    combined_defect = Defect(
+                        length=combined_length,
+                        relative_depth=combined_depth
+                    )
+                else:
+                    combined_defect = Defect(
+                        length=combined_length,
+                        depth=combined_depth
+                    )
+
+                self.add_defect(combined_defect)
+
         for defect in self.defects:
             if not self.loading:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
