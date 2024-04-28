@@ -7,7 +7,8 @@ from loguru import logger
 
 from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal,
                                                         calculate_max_defect_depth_longitudinal_with_stress,
-                                                        calculate_maximum_defect_length)
+                                                        calculate_maximum_defect_length, calculate_combined_length,
+                                                        calculate_combined_depth, verify_interaction)
 from src.utils.calculations.pressure_calculations import (calculate_pressure_resistance_longitudinal_defect,
                                                           calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.calculations.statistical_calculations import (calculate_std_dev, calculate_partial_safety_factors,
@@ -149,12 +150,14 @@ class Pipe:
     def __repr__(self):
         return f"Pipe(D={self.dimensions.outside_diameter}, t={self.dimensions.wall_thickness})"
 
-    def add_defect(self, defect: Defect):
+    def add_defect(self, defect: Defect, stdev: float = None):
         logger.info("Adding defect to pipe")
+        if not stdev:
+            stdev = self.measurement_factors.standard_deviation
         defect.complete_dimensions(self.dimensions.wall_thickness)
         defect.calculate_d_t_adjusted(
             epsilon_d=self.safety_factors.epsilon_d,
-            stdev=self.measurement_factors.standard_deviation
+            stdev=stdev
         )
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
@@ -181,13 +184,40 @@ class Pipe:
     def set_environment(self, environment):
         logger.info(f"Setting environment")
         self.environment = environment
-        if self.defect:
-            self.environment.elevation = self.defect.elevation
-            self.environment.calculate_external_pressure()
-            self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
+        self.environment.calculate_external_pressure()
+        self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
+
+        # Interacting Defects
+        if any(defect.position for defect in self.defects):
+            logger.info('Defect separation detected, checking for interaction')
+            separation = self.defects[1].position - self.defects[0].position
+            if verify_interaction(
+                    separation=separation,
+                    pipe_diameter=self.dimensions.outside_diameter,
+                    pipe_thickness=self.dimensions.wall_thickness
+            ):
+                logger.info('Defects are interacting, adding combined defect')
+                combined_length = calculate_combined_length(self.defects)
+                combined_depth = calculate_combined_depth(self.defects, self.measurement_factors.measurement_method)
+                if self.measurement_factors.measurement_method == 'relative':
+                    combined_defect = Defect(
+                        length=combined_length,
+                        relative_depth=combined_depth
+                    )
+                else:
+                    combined_defect = Defect(
+                        length=combined_length,
+                        depth=combined_depth
+                    )
+
+                stdev = (sum([defect.length * self.measurement_factors.standard_deviation for defect in self.defects]) /
+                         combined_length)
+
+                self.add_defect(combined_defect, stdev)
+
         for defect in self.defects:
             if not self.loading:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
@@ -253,8 +283,8 @@ class Pipe:
                 )
                 logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
                 if all([relative_depth, length]):
-                    rows.append(pd.DataFrame({'defect_length': length, 'defect_depth': relative_depth}, index=[0]))
-            minimum_values = {'defect_length': 0.0, 'defect_depth': rows[-1]['defect_depth']}
+                    rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
+            minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
             rows.append(pd.DataFrame(minimum_values, index=[0]))
         else:  # Calculate with loading
             target_pressure = self.properties.effective_pressure
@@ -284,7 +314,7 @@ class Pipe:
                 else:
                     defect_depth = 0
                 logger.debug(f"Max depth for defect length {defect_length} = {defect_depth}")
-                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
+                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_depth}, index=[0]))
 
         limits = pd.concat(rows).reset_index(drop=True)
         limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length

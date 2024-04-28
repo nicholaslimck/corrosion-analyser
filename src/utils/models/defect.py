@@ -7,7 +7,6 @@ from src.utils.calculations.defect_calculations import (calculate_length_correct
 @dataclass
 class Defect:
     length: float                                   # Defect length in mm
-    elevation: float                                # Defect elevation in m
     width: float = None                             # Defect width in mm
     depth: float = None                             # Defect depth in mm
     relative_depth: float = None                    # Relative defect depth as measured
@@ -16,6 +15,7 @@ class Defect:
     length_correction_factor: float = field(init=False)
     pressure_resistance: float = field(init=False)
     measurement_timestamp: float = None
+    position: float = 0
 
     def __post_init__(self):
         if not (self.depth or self.relative_depth):

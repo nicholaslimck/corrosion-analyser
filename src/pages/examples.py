@@ -8,8 +8,9 @@ from loguru import logger
 
 from src.utils.layout import center_align_style
 from src.utils import models
-from src.utils.graphing.single_defect import (generate_defect_depth_plot, generate_defect_cross_section_plot, generate_pipe_cross_section_plot,
-                                              generate_pipe_properties_table)
+from src.utils.graphing.defect_plots import generate_defect_depth_plot
+from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot, generate_defect_cross_section_plot,
+                                           generate_pipe_properties_table)
 
 dash.register_page(__name__)
 
