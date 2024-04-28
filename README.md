@@ -114,7 +114,6 @@ classDiagram
     }
     class Defect{
         +float length
-        +float elevation
         +float width
         +float depth
         +float relative_depth
@@ -122,6 +121,7 @@ classDiagram
         +float length_correction_factor
         +float pressure_resistance
         +float measurement_timestamp
+        +float position
     }
     Defect --> Pipe
     class PipeDimensions{
@@ -166,6 +166,15 @@ classDiagram
         +float xi
     }
     Pipe <-- UsageFactors
+    class Environment{
+        +float seawater_density
+        +float containment_density
+        +float elevation_reference
+        +float elevation
+        +float external_pressure
+        +float incidental_pressure
+    }
+    Pipe <-- Environment
     class Loading{
         +float usage_factor
         +float axial_stress
