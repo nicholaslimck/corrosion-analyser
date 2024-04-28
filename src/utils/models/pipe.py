@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -61,9 +62,9 @@ class SafetyFactors:
     safety_class: str
     inspection_method: str
     measurement_accuracy: float
-    gamma_m: float = field(init=False)
-    gamma_d: float = field(init=False)
-    epsilon_d: float = field(init=False)
+    gamma_m: float = field(init=False)  # Partial safety factor for longitudinal corrosion model projection
+    gamma_d: float = field(init=False)  # Partial safety factor for corrosion depth
+    epsilon_d: float = field(init=False)  # Factor for defining a fractile value for corrosion depth
 
     def __post_init__(self):
         logger.debug("Calculating partial safety factors")
@@ -101,6 +102,7 @@ class Properties:
     pressure_resistance: float = None
     effective_pressure: float = None
     maximum_allowable_defect_depth: pd.DataFrame = None
+    remaining_life: float = None
 
 
 class Pipe:
@@ -110,6 +112,7 @@ class Pipe:
     ):
         self.config = config
         self.defect = None
+        self.defects = []
         self.environment = None
         self.loading = None
         self.properties = Properties()
@@ -156,7 +159,9 @@ class Pipe:
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
 
-        self.defect = defect
+        if not self.defects:
+            self.defect = defect
+        self.defects.append(defect)
 
     def add_loading(self, axial_load: float = None, bending_load: float = None, combined_stress: float = None):
         if (axial_load or bending_load) and not combined_stress:
@@ -183,37 +188,40 @@ class Pipe:
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
-        if not self.loading:
-            p_corr = calculate_pressure_resistance_longitudinal_defect(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                t_nominal=self.dimensions.wall_thickness,
-                defect_length=self.defect.length,
-                d_nominal=self.dimensions.outside_diameter,
-                relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
-                f_u=self.material_properties.f_u,
-                q=self.defect.length_correction_factor
-            )
-            logger.info(f'Pressure Resistance: {p_corr}')
-            self.properties.pressure_resistance = p_corr
-        else:
-            logger.info('Loading detected')
-            p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
-                gamma_m=self.safety_factors.gamma_m,
-                gamma_d=self.safety_factors.gamma_d,
-                t_nominal=self.dimensions.wall_thickness,
-                d_nominal=self.dimensions.outside_diameter,
-                defect_length=self.defect.length,
-                defect_relative_depth_measured=self.defect.relative_depth,
-                relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
-                defect_width=self.defect.width,
-                f_u=self.material_properties.f_u,
-                sigma_l=self.loading.loading_stress,
-                phi=self.loading.usage_factor,
-                q=self.defect.length_correction_factor
-            )
-            logger.info(f'Pressure Resistance: {p_corr_comp}')
-            self.properties.pressure_resistance = p_corr_comp
+        for defect in self.defects:
+            if not self.loading:
+                p_corr = calculate_pressure_resistance_longitudinal_defect(
+                    gamma_m=self.safety_factors.gamma_m,
+                    gamma_d=self.safety_factors.gamma_d,
+                    t_nominal=self.dimensions.wall_thickness,
+                    defect_length=defect.length,
+                    d_nominal=self.dimensions.outside_diameter,
+                    relative_defect_depth_with_uncertainty=defect.relative_depth_with_uncertainty,
+                    f_u=self.material_properties.f_u,
+                    q=defect.length_correction_factor
+                )
+                logger.info(f'Pressure Resistance: {p_corr}')
+                defect.pressure_resistance = p_corr
+            else:
+                logger.info('Loading detected')
+                p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+                    gamma_m=self.safety_factors.gamma_m,
+                    gamma_d=self.safety_factors.gamma_d,
+                    t_nominal=self.dimensions.wall_thickness,
+                    d_nominal=self.dimensions.outside_diameter,
+                    defect_length=defect.length,
+                    defect_relative_depth_measured=defect.relative_depth,
+                    relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
+                    defect_width=defect.width,
+                    f_u=self.material_properties.f_u,
+                    sigma_l=self.loading.loading_stress,
+                    phi=self.loading.usage_factor,
+                    q=defect.length_correction_factor
+                )
+                logger.info(f'Pressure Resistance: {p_corr_comp}')
+                defect.pressure_resistance = p_corr_comp
+
+        self.properties.pressure_resistance = min(defect.pressure_resistance for defect in self.defects)
 
     def calculate_effective_pressure(self):
         logger.info("Calculating effective pressure")
@@ -282,3 +290,90 @@ class Pipe:
         limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
 
         self.properties.maximum_allowable_defect_depth = limits
+
+    def estimate_remaining_life(self):
+        """
+        Estimate the remaining life of the pipe based on the current defect and loading based on 2.9.2
+
+        d_t: defect depth after time T
+        l_t: defect length after time T
+        T: time
+        r_corr: corrosion rate
+        r_corr_length: corrosion rate for length
+        d_0: initial defect depth
+        l_0: initial defect length
+        Returns:
+
+        """
+        if self.properties.pressure_resistance < self.properties.effective_pressure:
+            logger.info('Pipe has already failed, skipping remaining life calculation')
+            self.properties.remaining_life = 0
+            return False
+
+        d_0 = self.defects[1].relative_depth
+        l_0 = self.defects[1].length
+        w_0 = self.defects[1].width
+
+        r_corr, r_corr_length = self.calculate_corrosion_rate()
+
+        # Find the point where the defect depth and length reach the maximum allowable defect depth/length
+        d_t = d_0
+        l_t = l_0
+        w_t = w_0
+        failure = False
+        filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
+            (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
+            (self.properties.maximum_allowable_defect_depth['defect_depth'] > d_t)
+        ]
+
+        while not failure:
+            d_t += r_corr
+            l_t += r_corr_length
+
+            for row in filtered_allowable_depth.itertuples():
+                if math.isclose(l_t, row.defect_length, abs_tol=0.5):
+                    if d_t >= row.defect_depth:
+                        failure = True
+                        break
+                    else:
+                        break
+
+        remaining_life = (d_t - d_0) / r_corr
+
+        self.properties.remaining_life = remaining_life
+
+    def calculate_corrosion_rate(self) -> tuple[float, float]:
+        """
+        Calculate the corrosion rate of the pipe based on the defects
+        Returns:
+            corrosion_rate_depth: Depth corrosion rate per day
+            corrosion_rate_length: Length corrosion rate per day
+        """
+        if len(self.defects) < 2:
+            raise ValueError("Multiple defects required to calculate corrosion rate")
+
+        # Get defect measurements for first defect
+        d_0 = self.defects[0].relative_depth
+        l_0 = self.defects[0].length
+        w_0 = self.defects[0].width
+        ts_0 = self.defects[0].measurement_timestamp
+
+        # Get defect measurements for second defect
+        d_1 = self.defects[1].relative_depth
+        l_1 = self.defects[1].length
+        w_1 = self.defects[1].width
+        ts_1 = self.defects[1].measurement_timestamp
+
+        d_ts = ts_1 - ts_0
+
+        if d_ts == 0:
+            raise ValueError("Timestamps must be different to calculate corrosion rate")
+
+        r_corr_depth = 86400 * (d_1 - d_0) / d_ts
+        r_corr_length = 86400 * (l_1 - l_0) / d_ts
+        if all([w_0, w_1]):
+            r_corr_width = 86400 * (w_1 - w_0) / d_ts
+
+        return r_corr_depth, r_corr_length
+
+

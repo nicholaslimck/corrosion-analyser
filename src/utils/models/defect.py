@@ -1,4 +1,3 @@
-import math
 from dataclasses import dataclass, field
 
 from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
@@ -15,6 +14,8 @@ class Defect:
     relative_depth_with_uncertainty: float = None   # Relative defect depth accounting for measurement uncertainty
 
     length_correction_factor: float = field(init=False)
+    pressure_resistance: float = field(init=False)
+    measurement_timestamp: float = None
 
     def __post_init__(self):
         if not (self.depth or self.relative_depth):

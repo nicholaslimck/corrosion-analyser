@@ -30,16 +30,11 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
 
     marker_df = pd.DataFrame(
         {
-            'defect_length': pipe.defect.length,
-            'defect_depth': pipe.defect.relative_depth
+            'defect_length': pipe.defects[0].length,
+            'defect_depth': pipe.defects[0].relative_depth,
         }, index=[0])
-
-    if pipe.properties.effective_pressure <= pipe.properties.pressure_resistance:
-        colour = 'blue'
-    else:
-        colour = 'red'
-
-    marker = px.scatter(marker_df, x='defect_length', y='defect_depth', color_discrete_sequence=[colour])
+    marker_colour = 'blue' if pipe.properties.effective_pressure <= pipe.defects[0].pressure_resistance else 'red'
+    marker = px.scatter(marker_df, x='defect_length', y='defect_depth', color_discrete_sequence=[marker_colour])
 
     fig.add_trace(marker.data[0])
 
@@ -47,6 +42,22 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
     fig['data'][1]['showlegend'] = True
     fig['data'][0]['name'] = 'Calculated Limits'
     fig['data'][1]['name'] = 'Measured Defect'
+
+    if len(pipe.defects) > 1:
+        secondary_marker_df = pd.DataFrame(
+            {
+                'defect_length': [pipe.defects[1].length],
+                'defect_depth': [pipe.defects[1].relative_depth]
+            }, index=[0])
+        secondary_marker_colour = 'blue' if pipe.properties.effective_pressure <= pipe.defects[1].pressure_resistance else 'red'
+        secondary_marker = px.scatter(secondary_marker_df, x='defect_length', y='defect_depth',
+                                      color_discrete_sequence=[secondary_marker_colour])
+
+        fig.add_trace(secondary_marker.data[0])
+        fig['data'][2]['showlegend'] = True
+        fig['data'][2]['name'] = 'Second Measured Defect'
+        # set secondary marker to be a square
+        fig['data'][2]['marker']['symbol'] = 'square'
 
     fig.update_layout(
         # height=800,
