@@ -89,14 +89,14 @@ def example_a_1_1():
 
     defect = models.Defect(
         length=200,
-        elevation=-100,
         relative_depth=0.25
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-100
     )
 
     pipe.add_defect(defect)
@@ -127,14 +127,14 @@ def example_a_1_2():
 
     defect = models.Defect(
         length=200,
-        elevation=-200,
         relative_depth=0.25
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-200
     )
 
     pipe.add_defect(defect)
@@ -166,14 +166,14 @@ def example_a_1_3():
     defect = models.Defect(
         length=200.0,
         width=100.0,
-        relative_depth=0.62,
-        elevation=-100
+        relative_depth=0.62
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-100
     )
 
     pipe.add_defect(defect)
