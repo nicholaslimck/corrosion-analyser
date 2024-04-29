@@ -69,7 +69,7 @@ flowchart
         C --Inputs Invalid--> L[Display Error]
         subgraph Processing
         D(Prepare all inputs) --> E1(Create Pipe)
-        D --> E2(Create Defect) --> E1
+        D --> E2("Create Defect (s)") --> E1
         D --> E3(Create Environment) --> E1
         D --> E4(Create Loading) --> E1
         E1 --> F(Calculate Pressure Resistance\nCalculate Effective Pressure)

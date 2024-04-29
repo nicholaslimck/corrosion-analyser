@@ -20,7 +20,7 @@ layout = dbc.Container(
                 
                 ![corrosion_modes](https://ars.els-cdn.com/content/image/1-s2.0-S1875510019302239-fx1_lrg.jpg#threeQuarterWidth "Different forms of internal corrosion in hydrocarbon pipelines")
                 
-                *Different forms of internal corrosion in hydrocarbon pipelines. (Askari et. al. 2019)*
+                *Different forms of internal corrosion in hydrocarbon pipelines. (Askari et al. 2019)*
                 
                 The DNV-RP-F101 recommended practice provides guidelines for the assessment of such corrosion defects in carbon steel pipelines. 
                 This application is an implementation of the recommended practice to simplify the assessment process.
