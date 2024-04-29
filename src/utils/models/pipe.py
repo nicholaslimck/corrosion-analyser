@@ -55,7 +55,7 @@ class Loading:
 class Properties:
     pressure_resistance: float = None
     effective_pressure: float = None
-    maximum_allowable_defect_depth: pd.DataFrame = None
+    maximum_allowable_defect_depth: list[pd.DataFrame] = field(default_factory=list)
     remaining_life: float = None
 
 
@@ -187,67 +187,75 @@ class Pipe:
 
     def calculate_maximum_allowable_defect_depth(self, resolution=0.001):
         """
-        Calculate the maximum acceptable relative defect depth for a given defect depth
+        Calculate the maximum acceptable relative defect depth for a given defect length
         Returns:
             limits: pd.DataFrame representation of the maximum acceptable relative defect depth at each length
         """
         logger.info(f"Calculating limits for defect depth and length")
-        rows = []
-        if not self.loading:  # With no loading
-            for relative_depth in np.arange(0, 1, resolution):
-                if not relative_depth:  # Depth must be greater than 0
-                    continue
-                length = calculate_maximum_defect_length(
-                    d=self.dimensions.outside_diameter,
-                    t=self.dimensions.wall_thickness,
-                    gamma_d=self.factors.gamma_d,
-                    gamma_m=self.factors.gamma_m,
-                    f_u=self.material_properties.f_u,
-                    p_li=self.environment.incidental_pressure,
-                    p_le=self.environment.external_pressure,
-                    d_t_meas=relative_depth,
-                    epsilon_d=self.factors.epsilon_d,
-                    st_dev=self.factors.standard_deviation
-                )
-                logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
-                if all([relative_depth, length]):
-                    rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
-            minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
-            rows.append(pd.DataFrame(minimum_values, index=[0]))
-        else:  # Calculate with loading
-            target_pressure = self.properties.effective_pressure
-            depth_zeroed = False
 
-            for defect_length in np.arange(0, 1000, resolution * 500):
-                if not depth_zeroed:
-                    defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
-                        gamma_m=self.factors.gamma_m,
-                        gamma_d=self.factors.gamma_d,
-                        pipe_thickness=self.dimensions.wall_thickness,
-                        defect_length=defect_length,
-                        defect_width=self.defect.width,
-                        pipe_diameter=self.dimensions.outside_diameter,
+        defects = self.defects.copy()
+
+        # Ignore the second defect
+        if len(self.defects) > 1:
+            del defects[1]
+
+        for index, defect in enumerate(defects):
+            rows = []
+            if not self.loading:  # With no loading
+                for relative_depth in np.arange(0, 1, resolution):
+                    if not relative_depth:  # Depth must be greater than 0
+                        continue
+                    length = calculate_maximum_defect_length(
+                        d=self.dimensions.outside_diameter,
+                        t=self.dimensions.wall_thickness,
+                        gamma_d=defect.factors.gamma_d,
+                        gamma_m=defect.factors.gamma_m,
                         f_u=self.material_properties.f_u,
-                        p_corr_comp=target_pressure,
-                        xi=self.factors.xi,
-                        sigma_l=self.loading.loading_stress,
-                        epsilon_d=self.factors.epsilon_d,
-                        st_dev=self.factors.standard_deviation
+                        p_li=self.environment.incidental_pressure,
+                        p_le=self.environment.external_pressure,
+                        d_t_meas=relative_depth,
+                        epsilon_d=defect.factors.epsilon_d,
+                        st_dev=defect.factors.standard_deviation
                     )
+                    logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
+                    if all([relative_depth, length]):
+                        rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
+                minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
+                rows.append(pd.DataFrame(minimum_values, index=[0]))
+            else:  # Calculate with loading
+                target_pressure = self.properties.effective_pressure
+                depth_zeroed = False
 
-                    if defect_relative_depth <= 0:
-                        # If defect depth reaches 0, skip calculations for the rest of the lengths
-                        depth_zeroed = True
+                for defect_length in np.arange(0, 1000, resolution * 500):
+                    if not depth_zeroed:
+                        defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
+                            gamma_m=self.factors.gamma_m,
+                            gamma_d=self.factors.gamma_d,
+                            pipe_thickness=self.dimensions.wall_thickness,
+                            defect_length=defect_length,
+                            defect_width=self.defect.width,
+                            pipe_diameter=self.dimensions.outside_diameter,
+                            f_u=self.material_properties.f_u,
+                            p_corr_comp=target_pressure,
+                            xi=self.factors.xi,
+                            sigma_l=self.loading.loading_stress,
+                            epsilon_d=self.factors.epsilon_d,
+                            st_dev=self.factors.standard_deviation
+                        )
+
+                        if defect_relative_depth <= 0:
+                            # If defect depth reaches 0, skip calculations for the rest of the lengths
+                            depth_zeroed = True
+                            defect_relative_depth = 0
+                    else:
                         defect_relative_depth = 0
-                else:
-                    defect_relative_depth = 0
-                logger.debug(f"Max depth for defect length {defect_length} = {defect_relative_depth}")
-                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_relative_depth}, index=[0]))
+                    logger.debug(f"Max depth for defect length {defect_length} = {defect_relative_depth}")
+                    rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_relative_depth}, index=[0]))
 
-        limits = pd.concat(rows).reset_index(drop=True)
-        limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
+            limits = pd.concat(rows).reset_index(drop=True)
+            limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
 
-        self.properties.maximum_allowable_defect_depth = limits
+            self.properties.maximum_allowable_defect_depth.append(limits)
 
     def estimate_remaining_life(self):
         """

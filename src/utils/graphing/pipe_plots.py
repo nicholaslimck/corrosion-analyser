@@ -87,13 +87,17 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             x0 = position_range * 0.5 + pipe.defects[0].length + defect.position
         else:
             x0 = position_range * 0.5
+        if index == 2:
+            opacity = 0.3
+        else:
+            opacity = 0.6
         fig.add_shape(
             type="rect",
             fillcolor="LightSalmon",
             xref="x", yref="y",
             x0=x0, y0=pipe.dimensions.wall_thickness - defect.depth,
             x1=x0 + defect.length, y1=pipe.dimensions.wall_thickness,
-            opacity=0.6,
+            opacity=opacity,
             label=dict(text=f"Defect Depth: {defect.depth:.2f}", font=dict(color="White"))
         )
     fig.update_xaxes(range=[0, position_range * 2], fixedrange=True)
