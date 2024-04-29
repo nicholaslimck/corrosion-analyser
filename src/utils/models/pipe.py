@@ -287,9 +287,10 @@ class Pipe:
         l_t = l_0
         w_t = w_0
         failure = False
-        filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
-            (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
-            (self.properties.maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
+        maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
+        filtered_allowable_depth = maximum_allowable_defect_depth[
+            (maximum_allowable_defect_depth['defect_length'] > l_t) &
+            (maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
         ]
 
         while not failure:

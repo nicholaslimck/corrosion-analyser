@@ -83,14 +83,27 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     )
     # Add defect shapes
     for index, defect in enumerate(pipe.defects):
+        # Configure position
         if index == 1:
             x0 = position_range * 0.5 + pipe.defects[0].length + defect.position
         else:
             x0 = position_range * 0.5
+
+        # Configure opacity
         if index == 2:
             opacity = 0.3
         else:
             opacity = 0.6
+
+        # Configure name
+        if len(pipe.defects) == 1:
+            name = "Measured Defect"
+        else:
+            if index != 2:
+                name = f"Measured Defect {index+1}"
+            else:
+                name = "Combined Defect"
+
         fig.add_shape(
             type="rect",
             fillcolor="LightSalmon",
@@ -98,7 +111,9 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             x0=x0, y0=pipe.dimensions.wall_thickness - defect.depth,
             x1=x0 + defect.length, y1=pipe.dimensions.wall_thickness,
             opacity=opacity,
-            label=dict(text=f"Defect Depth: {defect.depth:.2f}", font=dict(color="White"))
+            label=dict(text=f"Defect Depth: {defect.depth:.2f}", font=dict(color="White")),
+            name=name,
+            showlegend=True if len(pipe.defects) > 1 else False
         )
     fig.update_xaxes(range=[0, position_range * 2], fixedrange=True)
     fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05],

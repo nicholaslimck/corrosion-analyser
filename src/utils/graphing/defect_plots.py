@@ -67,8 +67,8 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
         fig['data'][2]['showlegend'] = True
 
         fig['data'][0]['name'] = 'Calculated Limits'
-        fig['data'][1]['name'] = 'Measured Defect'
-        fig['data'][2]['name'] = 'Second Measured Defect'
+        fig['data'][1]['name'] = 'Measured Defect 1'
+        fig['data'][2]['name'] = 'Measured Defect 2'
         # set secondary marker to be a square
         fig['data'][2]['marker']['symbol'] = 'square'
     elif len(fig['data']) == 5:
@@ -80,8 +80,8 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
 
         fig['data'][0]['name'] = 'Calculated Limits - Primary'
         fig['data'][1]['name'] = 'Calculated Limits - Interacting'
-        fig['data'][2]['name'] = 'Measured Defect'
-        fig['data'][3]['name'] = 'Second Measured Defect'
+        fig['data'][2]['name'] = 'Measured Defect 1'
+        fig['data'][3]['name'] = 'Measured Defect 2'
         fig['data'][4]['name'] = 'Combined Defect'
 
         # set secondary marker to be a square
