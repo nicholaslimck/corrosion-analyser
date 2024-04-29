@@ -99,9 +99,7 @@ classDiagram
         +PipeDimensions pipe_dimensions
         +MaterialProperties material_properties
         +DesignLimits design_limits
-        +MeasurementFactors measurement_factors
-        +SafetyFactors safety_factors
-        +UsageFactors usage_factors
+        +Factors factors
         +add_defect(defect: Defect)
         +add_loading(axial_load: float, bending_load: float, combined_stress: float)
         +set_environment(environment: Environment)
@@ -123,7 +121,7 @@ classDiagram
         +float measurement_timestamp
         +float position
     }
-    Defect --> Pipe
+    Pipe <-- Defect
     class PipeDimensions{
         +float outside_diameter
         +float wall_thickness
@@ -144,28 +142,6 @@ classDiagram
         +float incidental_to_design_pressure_ratio
     }
     Pipe <-- DesignLimits
-    class MeasurementFactors{
-        +float accuracy
-        +string measurement_method
-        +float confidence_level
-        +float wall_thickness
-        +float standard_deviation
-    }
-    Pipe <-- MeasurementFactors
-    class SafetyFactors{
-        +string safety_class
-        +string inspection_method
-        +float measurement_accuracy
-        +float gamma_m
-        +float gamma_d
-        +float epsilon_d
-    }
-    Pipe <-- SafetyFactors
-    class UsageFactors{
-        +string safety_class
-        +float xi
-    }
-    Pipe <-- UsageFactors
     class Environment{
         +float seawater_density
         +float containment_density
@@ -189,5 +165,19 @@ classDiagram
         +float remaining_life
     }
     Properties --> Pipe
+    class Factors{
+        +str safety_class
+        +str inspection_method
+        +float measurement_accuracy
+        +float confidence_level
+        +float wall_thickness
+        +float standard_deviation
+        +float gamma_m
+        +float gamma_d
+        +float epsilon_d
+        +float xi
+    }
+    Factors --> Pipe
+    Factors --> Defect
     
 ```

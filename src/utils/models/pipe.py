@@ -13,7 +13,10 @@ from src.utils.calculations.pressure_calculations import (calculate_pressure_res
                                                           calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.calculations.statistical_calculations import (calculate_std_dev, calculate_partial_safety_factors,
                                                              calculate_usage_factors)
-from . import MaterialProperties, Defect, Environment
+from .material import MaterialProperties
+from .defect import Defect
+from .environment import Environment
+from .factors import Factors
 
 
 @dataclass
@@ -34,56 +37,6 @@ class DesignLimits:
     design_pressure: float
     design_temperature: float
     incidental_to_design_pressure_ratio: float
-
-
-@dataclass
-class MeasurementFactors:
-    """
-    Accuracy can be in absolute or relative units
-    Confidence percentage in decimal representation
-    """
-    accuracy: float
-    measurement_method: str
-    confidence_level: float
-    wall_thickness: float
-    standard_deviation: float = field(init=False)
-
-    def __post_init__(self):
-        logger.debug("Calculating measurement factors")
-        self.standard_deviation = calculate_std_dev(
-            conf=self.confidence_level,
-            acc=self.accuracy,
-            measurement_method=self.measurement_method,
-            t=self.wall_thickness
-        )
-
-
-@dataclass
-class SafetyFactors:
-    safety_class: str
-    inspection_method: str
-    measurement_accuracy: float
-    gamma_m: float = field(init=False)  # Partial safety factor for longitudinal corrosion model projection
-    gamma_d: float = field(init=False)  # Partial safety factor for corrosion depth
-    epsilon_d: float = field(init=False)  # Factor for defining a fractile value for corrosion depth
-
-    def __post_init__(self):
-        logger.debug("Calculating partial safety factors")
-        safety_factors = calculate_partial_safety_factors(self.safety_class, self.inspection_method,
-                                                          self.measurement_accuracy)
-        self.gamma_m = safety_factors['gamma_m']
-        self.gamma_d = safety_factors['gamma_d']
-        self.epsilon_d = safety_factors['epsilon_d']
-
-
-@dataclass
-class UsageFactors:
-    safety_class: str
-    xi: float = field(init=False)
-
-    def __post_init__(self):
-        logger.debug("Calculating usage factors based off safety class")
-        self.xi = calculate_usage_factors(self.safety_class)
 
 
 @dataclass
@@ -132,33 +85,24 @@ class Pipe:
         )
         self.design_limits = DesignLimits(self.config['design_pressure'], self.config['design_temperature'],
                                           self.config['incidental_to_design_pressure_ratio'])
-        self.measurement_factors = MeasurementFactors(
-            accuracy=self.config.get('accuracy'),
-            measurement_method=self.config.get('measurement_method'),
+
+        self.factors = Factors(
+            safety_class=self.config['safety_class'],
+            inspection_method=self.config['measurement_method'],
+            measurement_accuracy=self.config['accuracy'],
             confidence_level=self.config['confidence_level'],
             wall_thickness=self.dimensions.wall_thickness
-        )
-        self.safety_factors = SafetyFactors(
-            self.config['safety_class'],
-            self.config['measurement_method'],
-            self.measurement_factors.standard_deviation
-        )
-        self.usage_factors = UsageFactors(
-            self.config['safety_class']
         )
 
     def __repr__(self):
         return f"Pipe(D={self.dimensions.outside_diameter}, t={self.dimensions.wall_thickness})"
 
-    def add_defect(self, defect: Defect, stdev: float = None):
+    def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
-        if not stdev:
-            stdev = self.measurement_factors.standard_deviation
-        defect.complete_dimensions(self.dimensions.wall_thickness)
-        defect.calculate_d_t_adjusted(
-            epsilon_d=self.safety_factors.epsilon_d,
-            stdev=stdev
-        )
+        if not defect.factors:
+            defect.factors = self.factors
+        defect.complete_dimensions()
+        defect.calculate_d_t_adjusted()
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
 
@@ -173,13 +117,13 @@ class Pipe:
             if bending_load:
                 logger.info(f"Adding bending loading to pipe: {bending_load}")
             self.loading = Loading(
-                usage_factor=self.usage_factors.xi,
+                usage_factor=self.factors.xi,
                 axial_stress=axial_load,
                 bending_stress=bending_load
             )
         elif combined_stress:
             logger.info(f"Adding loading to pipe: {combined_stress}")
-            self.loading = Loading(usage_factor=self.usage_factors.xi, loading_stress=combined_stress)
+            self.loading = Loading(usage_factor=self.factors.xi, loading_stress=combined_stress)
 
     def set_environment(self, environment):
         logger.info(f"Setting environment")
@@ -199,29 +143,14 @@ class Pipe:
                     pipe_thickness=self.dimensions.wall_thickness
             ):
                 logger.info('Defects are interacting, adding combined defect')
-                combined_length = calculate_combined_length(self.defects)
-                combined_depth = calculate_combined_depth(self.defects, self.measurement_factors.measurement_method)
-                if self.measurement_factors.measurement_method == 'relative':
-                    combined_defect = Defect(
-                        length=combined_length,
-                        relative_depth=combined_depth
-                    )
-                else:
-                    combined_defect = Defect(
-                        length=combined_length,
-                        depth=combined_depth
-                    )
-
-                stdev = (sum([defect.length * self.measurement_factors.standard_deviation for defect in self.defects]) /
-                         combined_length)
-
-                self.add_defect(combined_defect, stdev)
+                combined_defect = Defect(defects=self.defects)
+                self.add_defect(combined_defect)
 
         for defect in self.defects:
             if not self.loading:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
-                    gamma_m=self.safety_factors.gamma_m,
-                    gamma_d=self.safety_factors.gamma_d,
+                    gamma_m=defect.factors.gamma_m,
+                    gamma_d=defect.factors.gamma_d,
                     t_nominal=self.dimensions.wall_thickness,
                     defect_length=defect.length,
                     d_nominal=self.dimensions.outside_diameter,
@@ -234,13 +163,13 @@ class Pipe:
             else:
                 logger.info('Loading detected')
                 p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
-                    gamma_m=self.safety_factors.gamma_m,
-                    gamma_d=self.safety_factors.gamma_d,
+                    gamma_m=defect.factors.gamma_m,
+                    gamma_d=defect.factors.gamma_d,
                     t_nominal=self.dimensions.wall_thickness,
                     d_nominal=self.dimensions.outside_diameter,
                     defect_length=defect.length,
                     defect_relative_depth_measured=defect.relative_depth,
-                    relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
+                    relative_defect_depth_with_uncertainty=defect.relative_depth_with_uncertainty,
                     defect_width=defect.width,
                     f_u=self.material_properties.f_u,
                     sigma_l=self.loading.loading_stress,
@@ -271,14 +200,14 @@ class Pipe:
                 length = calculate_maximum_defect_length(
                     d=self.dimensions.outside_diameter,
                     t=self.dimensions.wall_thickness,
-                    gamma_d=self.safety_factors.gamma_d,
-                    gamma_m=self.safety_factors.gamma_m,
+                    gamma_d=self.factors.gamma_d,
+                    gamma_m=self.factors.gamma_m,
                     f_u=self.material_properties.f_u,
                     p_li=self.environment.incidental_pressure,
                     p_le=self.environment.external_pressure,
                     d_t_meas=relative_depth,
-                    epsilon_d=self.safety_factors.epsilon_d,
-                    st_dev=self.measurement_factors.standard_deviation
+                    epsilon_d=self.factors.epsilon_d,
+                    st_dev=self.factors.standard_deviation
                 )
                 logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
                 if all([relative_depth, length]):
@@ -292,18 +221,18 @@ class Pipe:
             for defect_length in np.arange(0, 1000, resolution * 500):
                 if not depth_zeroed:
                     defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
-                        gamma_m=self.safety_factors.gamma_m,
-                        gamma_d=self.safety_factors.gamma_d,
+                        gamma_m=self.factors.gamma_m,
+                        gamma_d=self.factors.gamma_d,
                         pipe_thickness=self.dimensions.wall_thickness,
                         defect_length=defect_length,
                         defect_width=self.defect.width,
                         pipe_diameter=self.dimensions.outside_diameter,
                         f_u=self.material_properties.f_u,
                         p_corr_comp=target_pressure,
-                        xi=self.usage_factors.xi,
+                        xi=self.factors.xi,
                         sigma_l=self.loading.loading_stress,
-                        epsilon_d=self.safety_factors.epsilon_d,
-                        st_dev=self.measurement_factors.standard_deviation
+                        epsilon_d=self.factors.epsilon_d,
+                        st_dev=self.factors.standard_deviation
                     )
 
                     if defect_relative_depth <= 0:
