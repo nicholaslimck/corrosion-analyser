@@ -291,7 +291,7 @@ class Pipe:
 
             for defect_length in np.arange(0, 1000, resolution * 500):
                 if not depth_zeroed:
-                    defect_depth = calculate_max_defect_depth_longitudinal_with_stress(
+                    defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
                         gamma_m=self.safety_factors.gamma_m,
                         gamma_d=self.safety_factors.gamma_d,
                         pipe_thickness=self.dimensions.wall_thickness,
@@ -306,14 +306,14 @@ class Pipe:
                         st_dev=self.measurement_factors.standard_deviation
                     )
 
-                    if defect_depth <= 0:
+                    if defect_relative_depth <= 0:
                         # If defect depth reaches 0, skip calculations for the rest of the lengths
                         depth_zeroed = True
-                        defect_depth = 0
+                        defect_relative_depth = 0
                 else:
-                    defect_depth = 0
-                logger.debug(f"Max depth for defect length {defect_length} = {defect_depth}")
-                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_depth}, index=[0]))
+                    defect_relative_depth = 0
+                logger.debug(f"Max depth for defect length {defect_length} = {defect_relative_depth}")
+                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_relative_depth}, index=[0]))
 
         limits = pd.concat(rows).reset_index(drop=True)
         limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
@@ -352,7 +352,7 @@ class Pipe:
         failure = False
         filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
             (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
-            (self.properties.maximum_allowable_defect_depth['defect_depth'] > d_t)
+            (self.properties.maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
         ]
 
         while not failure:
@@ -361,7 +361,7 @@ class Pipe:
 
             for row in filtered_allowable_depth.itertuples():
                 if math.isclose(l_t, row.defect_length, abs_tol=0.5):
-                    if d_t >= row.defect_depth:
+                    if d_t >= row.defect_relative_depth:
                         failure = True
                         break
                     else:
