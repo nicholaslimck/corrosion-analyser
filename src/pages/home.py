@@ -8,11 +8,11 @@ dash.register_page(__name__, path='/')
 
 layout = dbc.Container(
     [
-        dbc.Row(dbc.Col(html.H1('Pipeline Corrosion Analyser')), style=center_align_style),
-        dbc.Row(dbc.Col(html.H4('Based on DNV-RP-F101')), style=center_align_style),
         dbc.Row(dbc.Col(
             dcc.Markdown(
                 """
+                # Pipeline Corrosion Analyser
+                ## Based on DNV-RP-F101
                 This application is designed to assist in the assessment of corrosion defects in steel pipelines.
                 
                 Steel pipeline networks are used extensively in the oil and gas industry to transport materials over long distances. 
