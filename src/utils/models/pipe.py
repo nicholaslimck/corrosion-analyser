@@ -7,12 +7,16 @@ from loguru import logger
 
 from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal,
                                                         calculate_max_defect_depth_longitudinal_with_stress,
-                                                        calculate_maximum_defect_length)
+                                                        calculate_maximum_defect_length, calculate_combined_length,
+                                                        calculate_combined_depth, verify_interaction)
 from src.utils.calculations.pressure_calculations import (calculate_pressure_resistance_longitudinal_defect,
                                                           calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.calculations.statistical_calculations import (calculate_std_dev, calculate_partial_safety_factors,
                                                              calculate_usage_factors)
-from . import MaterialProperties, Defect, Environment
+from .material import MaterialProperties
+from .defect import Defect
+from .environment import Environment
+from .factors import Factors
 
 
 @dataclass
@@ -36,56 +40,6 @@ class DesignLimits:
 
 
 @dataclass
-class MeasurementFactors:
-    """
-    Accuracy can be in absolute or relative units
-    Confidence percentage in decimal representation
-    """
-    accuracy: float
-    measurement_method: str
-    confidence_level: float
-    wall_thickness: float
-    standard_deviation: float = field(init=False)
-
-    def __post_init__(self):
-        logger.debug("Calculating measurement factors")
-        self.standard_deviation = calculate_std_dev(
-            conf=self.confidence_level,
-            acc=self.accuracy,
-            measurement_method=self.measurement_method,
-            t=self.wall_thickness
-        )
-
-
-@dataclass
-class SafetyFactors:
-    safety_class: str
-    inspection_method: str
-    measurement_accuracy: float
-    gamma_m: float = field(init=False)  # Partial safety factor for longitudinal corrosion model projection
-    gamma_d: float = field(init=False)  # Partial safety factor for corrosion depth
-    epsilon_d: float = field(init=False)  # Factor for defining a fractile value for corrosion depth
-
-    def __post_init__(self):
-        logger.debug("Calculating partial safety factors")
-        safety_factors = calculate_partial_safety_factors(self.safety_class, self.inspection_method,
-                                                          self.measurement_accuracy)
-        self.gamma_m = safety_factors['gamma_m']
-        self.gamma_d = safety_factors['gamma_d']
-        self.epsilon_d = safety_factors['epsilon_d']
-
-
-@dataclass
-class UsageFactors:
-    safety_class: str
-    xi: float = field(init=False)
-
-    def __post_init__(self):
-        logger.debug("Calculating usage factors based off safety class")
-        self.xi = calculate_usage_factors(self.safety_class)
-
-
-@dataclass
 class Loading:
     usage_factor: float
     axial_stress: float = 0
@@ -101,7 +55,7 @@ class Loading:
 class Properties:
     pressure_resistance: float = None
     effective_pressure: float = None
-    maximum_allowable_defect_depth: pd.DataFrame = None
+    maximum_allowable_defect_depth: list[pd.DataFrame] = field(default_factory=list)
     remaining_life: float = None
 
 
@@ -131,19 +85,13 @@ class Pipe:
         )
         self.design_limits = DesignLimits(self.config['design_pressure'], self.config['design_temperature'],
                                           self.config['incidental_to_design_pressure_ratio'])
-        self.measurement_factors = MeasurementFactors(
-            accuracy=self.config.get('accuracy'),
-            measurement_method=self.config.get('measurement_method'),
+
+        self.factors = Factors(
+            safety_class=self.config['safety_class'],
+            inspection_method=self.config['measurement_method'],
+            measurement_accuracy=self.config['accuracy'],
             confidence_level=self.config['confidence_level'],
             wall_thickness=self.dimensions.wall_thickness
-        )
-        self.safety_factors = SafetyFactors(
-            self.config['safety_class'],
-            self.config['measurement_method'],
-            self.measurement_factors.standard_deviation
-        )
-        self.usage_factors = UsageFactors(
-            self.config['safety_class']
         )
 
     def __repr__(self):
@@ -151,11 +99,10 @@ class Pipe:
 
     def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
-        defect.complete_dimensions(self.dimensions.wall_thickness)
-        defect.calculate_d_t_adjusted(
-            epsilon_d=self.safety_factors.epsilon_d,
-            stdev=self.measurement_factors.standard_deviation
-        )
+        if not defect.factors:
+            defect.factors = self.factors
+        defect.complete_dimensions()
+        defect.calculate_d_t_adjusted()
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
 
@@ -170,29 +117,40 @@ class Pipe:
             if bending_load:
                 logger.info(f"Adding bending loading to pipe: {bending_load}")
             self.loading = Loading(
-                usage_factor=self.usage_factors.xi,
+                usage_factor=self.factors.xi,
                 axial_stress=axial_load,
                 bending_stress=bending_load
             )
         elif combined_stress:
             logger.info(f"Adding loading to pipe: {combined_stress}")
-            self.loading = Loading(usage_factor=self.usage_factors.xi, loading_stress=combined_stress)
+            self.loading = Loading(usage_factor=self.factors.xi, loading_stress=combined_stress)
 
     def set_environment(self, environment):
         logger.info(f"Setting environment")
         self.environment = environment
-        if self.defect:
-            self.environment.elevation = self.defect.elevation
-            self.environment.calculate_external_pressure()
-            self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
+        self.environment.calculate_external_pressure()
+        self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
+
+        # Interacting Defects
+        if any(defect.position for defect in self.defects):
+            logger.info('Defect separation detected, checking for interaction')
+            if verify_interaction(
+                    defects=self.defects,
+                    pipe_diameter=self.dimensions.outside_diameter,
+                    pipe_thickness=self.dimensions.wall_thickness
+            ):
+                logger.info('Defects are interacting, adding combined defect')
+                combined_defect = Defect(defects=self.defects)
+                self.add_defect(combined_defect)
+
         for defect in self.defects:
             if not self.loading:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
-                    gamma_m=self.safety_factors.gamma_m,
-                    gamma_d=self.safety_factors.gamma_d,
+                    gamma_m=defect.factors.gamma_m,
+                    gamma_d=defect.factors.gamma_d,
                     t_nominal=self.dimensions.wall_thickness,
                     defect_length=defect.length,
                     d_nominal=self.dimensions.outside_diameter,
@@ -205,13 +163,13 @@ class Pipe:
             else:
                 logger.info('Loading detected')
                 p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
-                    gamma_m=self.safety_factors.gamma_m,
-                    gamma_d=self.safety_factors.gamma_d,
+                    gamma_m=defect.factors.gamma_m,
+                    gamma_d=defect.factors.gamma_d,
                     t_nominal=self.dimensions.wall_thickness,
                     d_nominal=self.dimensions.outside_diameter,
                     defect_length=defect.length,
                     defect_relative_depth_measured=defect.relative_depth,
-                    relative_defect_depth_with_uncertainty=self.defect.relative_depth_with_uncertainty,
+                    relative_defect_depth_with_uncertainty=defect.relative_depth_with_uncertainty,
                     defect_width=defect.width,
                     f_u=self.material_properties.f_u,
                     sigma_l=self.loading.loading_stress,
@@ -229,67 +187,75 @@ class Pipe:
 
     def calculate_maximum_allowable_defect_depth(self, resolution=0.001):
         """
-        Calculate the maximum acceptable relative defect depth for a given defect depth
+        Calculate the maximum acceptable relative defect depth for a given defect length
         Returns:
             limits: pd.DataFrame representation of the maximum acceptable relative defect depth at each length
         """
         logger.info(f"Calculating limits for defect depth and length")
-        rows = []
-        if not self.loading:  # With no loading
-            for relative_depth in np.arange(0, 1, resolution):
-                if not relative_depth:  # Depth must be greater than 0
-                    continue
-                length = calculate_maximum_defect_length(
-                    d=self.dimensions.outside_diameter,
-                    t=self.dimensions.wall_thickness,
-                    gamma_d=self.safety_factors.gamma_d,
-                    gamma_m=self.safety_factors.gamma_m,
-                    f_u=self.material_properties.f_u,
-                    p_li=self.environment.incidental_pressure,
-                    p_le=self.environment.external_pressure,
-                    d_t_meas=relative_depth,
-                    epsilon_d=self.safety_factors.epsilon_d,
-                    st_dev=self.measurement_factors.standard_deviation
-                )
-                logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
-                if all([relative_depth, length]):
-                    rows.append(pd.DataFrame({'defect_length': length, 'defect_depth': relative_depth}, index=[0]))
-            minimum_values = {'defect_length': 0.0, 'defect_depth': rows[-1]['defect_depth']}
-            rows.append(pd.DataFrame(minimum_values, index=[0]))
-        else:  # Calculate with loading
-            target_pressure = self.properties.effective_pressure
-            depth_zeroed = False
 
-            for defect_length in np.arange(0, 1000, resolution * 500):
-                if not depth_zeroed:
-                    defect_depth = calculate_max_defect_depth_longitudinal_with_stress(
-                        gamma_m=self.safety_factors.gamma_m,
-                        gamma_d=self.safety_factors.gamma_d,
-                        pipe_thickness=self.dimensions.wall_thickness,
-                        defect_length=defect_length,
-                        defect_width=self.defect.width,
-                        pipe_diameter=self.dimensions.outside_diameter,
+        defects = self.defects.copy()
+
+        # Ignore the second defect
+        if len(self.defects) > 1:
+            del defects[1]
+
+        for index, defect in enumerate(defects):
+            rows = []
+            if not self.loading:  # With no loading
+                for relative_depth in np.arange(0, 1, resolution):
+                    if not relative_depth:  # Depth must be greater than 0
+                        continue
+                    length = calculate_maximum_defect_length(
+                        d=self.dimensions.outside_diameter,
+                        t=self.dimensions.wall_thickness,
+                        gamma_d=defect.factors.gamma_d,
+                        gamma_m=defect.factors.gamma_m,
                         f_u=self.material_properties.f_u,
-                        p_corr_comp=target_pressure,
-                        xi=self.usage_factors.xi,
-                        sigma_l=self.loading.loading_stress,
-                        epsilon_d=self.safety_factors.epsilon_d,
-                        st_dev=self.measurement_factors.standard_deviation
+                        p_li=self.environment.incidental_pressure,
+                        p_le=self.environment.external_pressure,
+                        d_t_meas=relative_depth,
+                        epsilon_d=defect.factors.epsilon_d,
+                        st_dev=defect.factors.standard_deviation
                     )
+                    logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
+                    if all([relative_depth, length]):
+                        rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
+                minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
+                rows.append(pd.DataFrame(minimum_values, index=[0]))
+            else:  # Calculate with loading
+                target_pressure = self.properties.effective_pressure
+                depth_zeroed = False
 
-                    if defect_depth <= 0:
-                        # If defect depth reaches 0, skip calculations for the rest of the lengths
-                        depth_zeroed = True
-                        defect_depth = 0
-                else:
-                    defect_depth = 0
-                logger.debug(f"Max depth for defect length {defect_length} = {defect_depth}")
-                rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_depth': defect_depth}, index=[0]))
+                for defect_length in np.arange(0, 1000, resolution * 500):
+                    if not depth_zeroed:
+                        defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
+                            gamma_m=self.factors.gamma_m,
+                            gamma_d=self.factors.gamma_d,
+                            pipe_thickness=self.dimensions.wall_thickness,
+                            defect_length=defect_length,
+                            defect_width=self.defect.width,
+                            pipe_diameter=self.dimensions.outside_diameter,
+                            f_u=self.material_properties.f_u,
+                            p_corr_comp=target_pressure,
+                            xi=self.factors.xi,
+                            sigma_l=self.loading.loading_stress,
+                            epsilon_d=self.factors.epsilon_d,
+                            st_dev=self.factors.standard_deviation
+                        )
 
-        limits = pd.concat(rows).reset_index(drop=True)
-        limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
+                        if defect_relative_depth <= 0:
+                            # If defect depth reaches 0, skip calculations for the rest of the lengths
+                            depth_zeroed = True
+                            defect_relative_depth = 0
+                    else:
+                        defect_relative_depth = 0
+                    logger.debug(f"Max depth for defect length {defect_length} = {defect_relative_depth}")
+                    rows.append(pd.DataFrame({'defect_length': defect_length, 'defect_relative_depth': defect_relative_depth}, index=[0]))
 
-        self.properties.maximum_allowable_defect_depth = limits
+            limits = pd.concat(rows).reset_index(drop=True)
+            limits = limits.sort_values('defect_length', ignore_index=True)  # Sort by defect length
+
+            self.properties.maximum_allowable_defect_depth.append(limits)
 
     def estimate_remaining_life(self):
         """
@@ -321,9 +287,10 @@ class Pipe:
         l_t = l_0
         w_t = w_0
         failure = False
-        filtered_allowable_depth = self.properties.maximum_allowable_defect_depth[
-            (self.properties.maximum_allowable_defect_depth['defect_length'] > l_t) &
-            (self.properties.maximum_allowable_defect_depth['defect_depth'] > d_t)
+        maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
+        filtered_allowable_depth = maximum_allowable_defect_depth[
+            (maximum_allowable_defect_depth['defect_length'] > l_t) &
+            (maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
         ]
 
         while not failure:
@@ -332,7 +299,7 @@ class Pipe:
 
             for row in filtered_allowable_depth.itertuples():
                 if math.isclose(l_t, row.defect_length, abs_tol=0.5):
-                    if d_t >= row.defect_depth:
+                    if d_t >= row.defect_relative_depth:
                         failure = True
                         break
                     else:

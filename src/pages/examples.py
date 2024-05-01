@@ -8,8 +8,9 @@ from loguru import logger
 
 from src.utils.layout import center_align_style
 from src.utils import models
-from src.utils.graphing.single_defect import (generate_defect_depth_plot, generate_defect_cross_section_plot, generate_pipe_cross_section_plot,
-                                              generate_pipe_properties_table)
+from src.utils.graphing.defect_plots import generate_defect_depth_plot
+from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot, generate_defect_cross_section_plot,
+                                           generate_pipe_properties_table)
 
 dash.register_page(__name__)
 
@@ -88,14 +89,14 @@ def example_a_1_1():
 
     defect = models.Defect(
         length=200,
-        elevation=-100,
         relative_depth=0.25
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-100
     )
 
     pipe.add_defect(defect)
@@ -126,14 +127,14 @@ def example_a_1_2():
 
     defect = models.Defect(
         length=200,
-        elevation=-200,
         relative_depth=0.25
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-200
     )
 
     pipe.add_defect(defect)
@@ -165,14 +166,14 @@ def example_a_1_3():
     defect = models.Defect(
         length=200.0,
         width=100.0,
-        relative_depth=0.62,
-        elevation=-100
+        relative_depth=0.62
     )
 
     environment = models.Environment(
         seawater_density=1025,
         containment_density=200,
-        elevation_reference=30
+        elevation_reference=30,
+        elevation=-100
     )
 
     pipe.add_defect(defect)

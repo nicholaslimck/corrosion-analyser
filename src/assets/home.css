@@ -1,0 +1,3 @@
+img[src*="#threeQuarterWidth"] {
+   width:75vw;
+}

@@ -69,7 +69,7 @@ flowchart
         C --Inputs Invalid--> L[Display Error]
         subgraph Processing
         D(Prepare all inputs) --> E1(Create Pipe)
-        D --> E2(Create Defect) --> E1
+        D --> E2("Create Defect (s)") --> E1
         D --> E3(Create Environment) --> E1
         D --> E4(Create Loading) --> E1
         E1 --> F(Calculate Pressure Resistance\nCalculate Effective Pressure)
@@ -99,9 +99,7 @@ classDiagram
         +PipeDimensions pipe_dimensions
         +MaterialProperties material_properties
         +DesignLimits design_limits
-        +MeasurementFactors measurement_factors
-        +SafetyFactors safety_factors
-        +UsageFactors usage_factors
+        +Factors factors
         +add_defect(defect: Defect)
         +add_loading(axial_load: float, bending_load: float, combined_stress: float)
         +set_environment(environment: Environment)
@@ -114,7 +112,6 @@ classDiagram
     }
     class Defect{
         +float length
-        +float elevation
         +float width
         +float depth
         +float relative_depth
@@ -122,8 +119,9 @@ classDiagram
         +float length_correction_factor
         +float pressure_resistance
         +float measurement_timestamp
+        +float position
     }
-    Defect --> Pipe
+    Pipe <-- Defect
     class PipeDimensions{
         +float outside_diameter
         +float wall_thickness
@@ -144,28 +142,15 @@ classDiagram
         +float incidental_to_design_pressure_ratio
     }
     Pipe <-- DesignLimits
-    class MeasurementFactors{
-        +float accuracy
-        +string measurement_method
-        +float confidence_level
-        +float wall_thickness
-        +float standard_deviation
+    class Environment{
+        +float seawater_density
+        +float containment_density
+        +float elevation_reference
+        +float elevation
+        +float external_pressure
+        +float incidental_pressure
     }
-    Pipe <-- MeasurementFactors
-    class SafetyFactors{
-        +string safety_class
-        +string inspection_method
-        +float measurement_accuracy
-        +float gamma_m
-        +float gamma_d
-        +float epsilon_d
-    }
-    Pipe <-- SafetyFactors
-    class UsageFactors{
-        +string safety_class
-        +float xi
-    }
-    Pipe <-- UsageFactors
+    Pipe <-- Environment
     class Loading{
         +float usage_factor
         +float axial_stress
@@ -180,5 +165,19 @@ classDiagram
         +float remaining_life
     }
     Properties --> Pipe
+    class Factors{
+        +str safety_class
+        +str inspection_method
+        +float measurement_accuracy
+        +float confidence_level
+        +float wall_thickness
+        +float standard_deviation
+        +float gamma_m
+        +float gamma_d
+        +float epsilon_d
+        +float xi
+    }
+    Factors --> Pipe
+    Factors --> Defect
     
 ```
