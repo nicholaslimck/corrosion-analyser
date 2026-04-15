@@ -37,7 +37,7 @@ jobs:
         poetry install
     - name: Run test
       run: |
-        poetry run pytest
+        poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=35
   push_to_registry:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest

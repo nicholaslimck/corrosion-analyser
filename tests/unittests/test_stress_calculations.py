@@ -1,6 +1,8 @@
 import pytest
 
-from src.utils.calculations.stress_calculations import *
+from src.utils.calculations.stress_calculations import (calculate_axial_longitudinal_stress,
+                                                        calculate_bending_longitudinal_stress,
+                                                        calculate_nominal_longitudinal_stress)
 
 
 @pytest.mark.parametrize("d, t, f_x", [
@@ -23,6 +25,7 @@ def test_calculate_axial_longitudinal_stress(d, t, f_x, snapshot):
 def test_calculate_bending_longitudinal_stress(d, t, m_y, snapshot):
     sigma_b = calculate_bending_longitudinal_stress(d, t, m_y)
     assert sigma_b == snapshot
+
 
 @pytest.mark.parametrize("f_x, m_y, d, t", [
     (-200, 0, 219, 14.5),
