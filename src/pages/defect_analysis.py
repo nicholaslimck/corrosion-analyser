@@ -179,12 +179,13 @@ def layout():
     collapse = html.Div(
         [
             dbc.Button(
-                "Secondary defect",
+                "Secondary Defect",
                 id="secondary_defect_collapse_button",
-                className="mb-3",
-                color="primary",
+                className="w-100 mt-2 mb-2",
+                color="secondary",
+                outline=True,
+                size="sm",
                 n_clicks=0,
-                style={"margin-top": "10px"}
             ),
             dbc.Collapse(
                 [
@@ -217,8 +218,8 @@ def layout():
                             max_date_allowed=datetime.datetime.now().date(),
                             initial_visible_month=datetime.datetime.now().date(),
                             end_date=datetime.datetime.now().date(),
-                            start_date_placeholder_text='First Date',
-                            end_date_placeholder_text='Second Date'
+                            start_date_placeholder_text='Start',
+                            end_date_placeholder_text='End'
                         )
                     )
                 ],
@@ -262,7 +263,7 @@ def layout():
             input_table,
             collapse,
             dbc.Button(children='Analyse', id='single_defect_table_analyse',
-                       className="w-100 mt-3 mb-3", color="primary", size="lg"),
+                       className="w-100 mt-2 mb-3", color="primary"),
             html.Div(id='single_defect_table_analysis'),
         ],
         id="input_sidebar",
@@ -289,13 +290,12 @@ def layout():
 
     graphs_layout = dbc.Row(
         children=[
-            dbc.Row(dbc.Col(html.H3('Corrosion Assessment', style={"text-align": "center"}))),
             dbc.Row(dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), xs=12, md=10), justify='center'),
             dbc.Row([
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), xs=12, sm=10, md=5),
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), xs=12, sm=10, md=5)
             ], justify='center'),
-            dbc.Row(dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=10), justify='center')
+            dbc.Row(dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=8), justify='center')
         ],
         style={"margin-top": "15px", **center_align_style}
     )
