@@ -23,7 +23,12 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
             'defect_length': 'Corrosion Defect Length (mm)',
             'defect_relative_depth': 'Allowable Measured Relative Depth (d/t)'
         },
-        range_y=[0, 1.0], range_x=[0, 1000])
+        range_y=[0, 1.0])
+
+    # Auto-scale x-axis to data
+    max_defect_length = max(defect.length for defect in pipe.defects)
+    x_max = max(max_defect_length * 2, 500)
+    fig.update_xaxes(range=[0, x_max])
 
     if len(pipe.properties.maximum_allowable_defect_depth) > 1:
         interacting_limits = px.line(
@@ -34,7 +39,7 @@ def generate_defect_depth_plot(pipe: models.Pipe) -> go.Figure:
                 'defect_length': 'Corrosion Defect Length (mm)',
                 'defect_relative_depth': 'Allowable Measured Relative Depth (d/t)'
             },
-            range_y=[0, 1.0], range_x=[0, 1000]
+            range_y=[0, 1.0]
         )
         fig.add_trace(interacting_limits.data[0])
 

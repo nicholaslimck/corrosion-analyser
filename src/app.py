@@ -63,7 +63,7 @@ app.layout = html.Div([
     # html.H1('Corrosion Analyser'),
     dbc.NavbarSimple([
         # dbc.NavItem(dbc.NavLink('examples', href='examples'))
-        dbc.NavItem(dbc.NavLink(page['name'], href=page['relative_path'])) for page in dash.page_registry.values()
+        dbc.NavItem(dbc.NavLink(page['name'], href=page['relative_path'], active="exact")) for page in dash.page_registry.values()
     ],
         brand='Corrosion Analyser',
         fluid=True),

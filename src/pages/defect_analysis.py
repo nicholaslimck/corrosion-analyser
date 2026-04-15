@@ -228,62 +228,63 @@ def layout():
         ]
     )
 
-    input_layout = dbc.Row(
+    input_sidebar = dbc.Offcanvas(
         [
-            dbc.Row(dbc.Col(html.H2('Input Parameters'))),
-            dbc.Row(
-                [
-                    dbc.Col(dbc.InputGroup([
-                        dbc.InputGroupText("Safety Class:"),
-                        dbc.Select(
-                            id='single_defect_select_safety_class',
-                            value='medium',
-                            options=[
-                                {'label': 'Low', 'value': 'low'},
-                                {'label': 'Medium', 'value': 'medium'},
-                                {'label': 'High', 'value': 'high'}
-                            ], style=center_align_style
-                        )
-                    ], className="mb-3"), xs=12, md=6),
-                ], style=center_align_style
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(dbc.InputGroup([
-                        dbc.InputGroupText("Defect Measurement:"),
-                        dbc.Select(
-                            id='single_defect_select_measurement',
-                            value='relative',
-                            options=[
-                                {'label': 'Relative', 'value': 'relative'},
-                                {'label': 'Absolute', 'value': 'absolute'}
-                            ], style=center_align_style
-                        )
-                    ], className="mb-3"), xs=12, md=6),
-                ], style=center_align_style
-            ),
-            dbc.Row(dbc.Col(input_table, style=center_align_style)),
-            dbc.Row(dbc.Col(collapse, style=center_align_style)),
-            dbc.Row(dbc.Col(
-                [
-                    dbc.Button(children='Analyse', id='single_defect_table_analyse',
-                               style={"margin-top": "10px", "margin-bottom": "10px"}),
-                    dcc.Markdown(id='single_defect_table_analysis')
-                ]
-            )),
-            dbc.Modal(
-                [
-                    dbc.ModalHeader(dbc.ModalTitle("Input Error")),
-                    dbc.ModalBody(id='single_defect_input_error_modal_body'),
-                    dbc.ModalFooter(
-                        dbc.Button("Close", id="single_defect_error_close", className="ms-auto", n_clicks=0)
+            dbc.Row([
+                dbc.Col([
+                    html.Small("Safety Class", className="text-muted"),
+                    dbc.Select(
+                        id='single_defect_select_safety_class',
+                        value='medium',
+                        options=[
+                            {'label': 'Low', 'value': 'low'},
+                            {'label': 'Medium', 'value': 'medium'},
+                            {'label': 'High', 'value': 'high'}
+                        ],
+                        size="sm",
                     ),
-                ],
-                id="single_defect_input_error_modal",
-                is_open=False,
+                ]),
+                dbc.Col([
+                    html.Small("Measurement", className="text-muted"),
+                    dbc.Select(
+                        id='single_defect_select_measurement',
+                        value='relative',
+                        options=[
+                            {'label': 'Relative', 'value': 'relative'},
+                            {'label': 'Absolute', 'value': 'absolute'}
+                        ],
+                        size="sm",
+                    ),
+                ]),
+            ], className="mb-3"),
+            html.Small("Parameters shown in grey are optional or contextual.",
+                       className="text-muted mb-2 d-block"),
+            input_table,
+            collapse,
+            dbc.Button(children='Analyse', id='single_defect_table_analyse',
+                       className="w-100 mt-3 mb-3", color="primary", size="lg"),
+            html.Div(id='single_defect_table_analysis'),
+        ],
+        id="input_sidebar",
+        title="Input Parameters",
+        placement="start",
+        is_open=True,
+        scrollable=True,
+        backdrop=False,
+        close_button=True,
+        style={"width": "450px"},
+    )
+
+    error_modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Input Error")),
+            dbc.ModalBody(id='single_defect_input_error_modal_body'),
+            dbc.ModalFooter(
+                dbc.Button("Close", id="single_defect_error_close", className="ms-auto", n_clicks=0)
             ),
         ],
-        style={"margin-top": "15px", **center_align_style}
+        id="single_defect_input_error_modal",
+        is_open=False,
     )
 
     graphs_layout = dbc.Row(
@@ -294,7 +295,7 @@ def layout():
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), xs=12, sm=10, md=5),
                 dbc.Col(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), xs=12, sm=10, md=5)
             ], justify='center'),
-            dbc.Row(dbc.Col(dcc.Markdown(id='single_defect_table_evaluation', style={"text-align": "center"})))
+            dbc.Row(dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=10), justify='center')
         ],
         style={"margin-top": "15px", **center_align_style}
     )
@@ -302,8 +303,19 @@ def layout():
     combined_layout = dbc.Container(
         children=[
             html.Div(id='display'),
-            dbc.Row(html.H1("Defect Analysis"), style={"text-align": "center"}),
-            input_layout,
+            input_sidebar,
+            error_modal,
+            html.Div([
+                dbc.Button(
+                    "Input Parameters",
+                    id="input_sidebar_toggle",
+                    color="primary",
+                    outline=True,
+                    n_clicks=0,
+                    style={"position": "absolute", "left": "15px", "top": "0"},
+                ),
+                html.H1("Defect Analysis", className="text-center"),
+            ], style={"position": "relative"}, className="mb-3"),
             graphs_layout
         ],
         fluid=True
@@ -454,8 +466,8 @@ def calculate_pipe_characteristics(
 
     start_time = time.time()
 
-    data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
     data = set_dtypes(data)
+    data.append({'Parameter': 'Safety Class', 'Value': safety_class, 'Unit': ''})
 
     data_dict = {item['Parameter']: {"Value": item['Value'], "Unit": item['Unit']} for item in data}
 
@@ -479,26 +491,36 @@ def calculate_pipe_characteristics(
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe)
 
-        analysis = (
-            f"Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  \n"
-            f"Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"
-        )
+        result_items = [
+            dbc.ListGroupItem([html.Strong("Effective Pressure: "),
+                               f"{pipe.properties.effective_pressure:.2f} MPa"]),
+            dbc.ListGroupItem([html.Strong("Pressure Resistance: "),
+                               f"{pipe.properties.pressure_resistance:.2f} MPa"]),
+        ]
         if any([defect.position for defect in pipe.defects]):
-            if len(pipe.defects) == 3:
-                analysis += "  \nDefect interaction found"
-            else:
-                analysis += "  \nNo defect interaction found"
-
+            interaction_text = "Defect interaction found" if len(pipe.defects) == 3 else "No defect interaction found"
+            result_items.append(dbc.ListGroupItem([html.Strong("Interaction: "), interaction_text]))
         if pipe.properties.remaining_life is not None:
-            analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"
+            result_items.append(dbc.ListGroupItem([html.Strong("Remaining Life: "),
+                                                   f"{pipe.properties.remaining_life:.0f} days"]))
+        analysis = dbc.Card([
+            dbc.CardHeader("Results"),
+            dbc.ListGroup(result_items, flush=True)
+        ], className="mt-3 mb-3")
 
-        comparison = '<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'
-        status = 'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'
-        evaluation = (
-            f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
-            f"{comparison} "
-            f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  \n"
-            f"Corrosion is **{status}**."
+        is_acceptable = pipe.properties.effective_pressure < pipe.properties.pressure_resistance
+        comparison = '<' if is_acceptable else '>'
+        status = 'acceptable' if is_acceptable else 'unacceptable'
+        evaluation = dbc.Alert(
+            [
+                html.P(f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
+                       f"{comparison} "
+                       f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.",
+                       className="mb-2"),
+                html.H5(f"Corrosion is {status}.", className="mb-0"),
+            ],
+            color="success" if is_acceptable else "danger",
+            className="mt-3 text-center",
         )
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
@@ -601,3 +623,14 @@ def toggle_collapse(n, is_open):
 )
 def close_error_modal(n_clicks):
     return False
+
+
+@callback(
+    Output("input_sidebar", "is_open"),
+    Input("input_sidebar_toggle", "n_clicks"),
+    State("input_sidebar", "is_open"),
+)
+def toggle_input_sidebar(n, is_open):
+    if n:
+        return not is_open
+    return is_open

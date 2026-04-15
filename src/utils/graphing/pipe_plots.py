@@ -3,6 +3,9 @@ import plotly.graph_objects as go
 
 from src.utils import models
 
+PIPE_COLOR = "#2C7A7B"
+DEFECT_COLOR = "#E53E3E"
+
 
 def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400) -> go.Figure:
     """
@@ -33,22 +36,23 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400)
         xref="x", yref="y",
         x0=-outer_diameter / 2, y0=-outer_diameter / 2,
         x1=outer_diameter / 2, y1=outer_diameter / 2,
-        line_color="LightSeaGreen"
+        line_color=PIPE_COLOR
     )
     fig.add_shape(
         type="circle",
         xref="x", yref="y",
         x0=-inner_diameter / 2, y0=-inner_diameter / 2,
         x1=inner_diameter / 2, y1=inner_diameter / 2,
-        line_color="LightSeaGreen"
+        line_color=PIPE_COLOR
     )
 
     fig.update_xaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
-                     zeroline=False)
+                     zeroline=False, showticklabels=False)
     fig.update_yaxes(range=[-outer_diameter / 2 * 1.05, outer_diameter / 2 * 1.05],
-                     zeroline=False, scaleanchor="x", scaleratio=1, autorange=True)
+                     zeroline=False, scaleanchor="x", scaleratio=1, autorange=True,
+                     showticklabels=False)
 
-    # fig.update_layout(width=figure_width, height=figure_width)
+    fig.update_layout(title_text="Pipe Cross-Section", title_x=0.5)
 
     return fig
 
@@ -74,7 +78,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     # Create pipe shape
     fig.add_shape(
         type="rect",
-        fillcolor="LightSeaGreen",
+        fillcolor=PIPE_COLOR,
         xref="x", yref="y",
         x0=-10, y0=0,
         x1=position_range * 2.05, y1=thickness,
@@ -105,7 +109,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
 
         fig.add_shape(
             type="rect",
-            fillcolor="LightSalmon",
+            fillcolor=DEFECT_COLOR,
             xref="x", yref="y",
             x0=x0, y0=pipe.dimensions.wall_thickness - defect.depth,
             x1=x0 + defect.length, y1=pipe.dimensions.wall_thickness,
@@ -114,11 +118,10 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             name=name,
             showlegend=True if len(pipe.defects) > 1 else False
         )
-    fig.update_xaxes(range=[0, position_range * 2], fixedrange=True)
-    fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05],
-                     fixedrange=True)
+    fig.update_xaxes(range=[0, position_range * 2], showticklabels=False)
+    fig.update_yaxes(range=[-pipe.dimensions.wall_thickness * 0.05, pipe.dimensions.wall_thickness * 1.05])
 
-    # fig.update_layout(width=figure_width, height=figure_width)
+    fig.update_layout(title_text="Defect Cross-Section", title_x=0.5)
 
     return fig
 
