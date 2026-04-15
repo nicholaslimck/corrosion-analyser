@@ -93,10 +93,12 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400)
     )
 
     fig.update_xaxes(range=[-r_outer * 1.25, r_outer * 1.25],
-                     zeroline=False, showticklabels=False, showgrid=False)
+                     zeroline=False, showticklabels=False, showgrid=False,
+                     constrain="domain")
     fig.update_yaxes(range=[-r_outer * 1.25, r_outer * 1.25],
                      zeroline=False, scaleanchor="x", scaleratio=1,
-                     showticklabels=False, showgrid=False)
+                     showticklabels=False, showgrid=False,
+                     constrain="domain")
 
     fig.update_layout(title_text="Pipe Cross-Section", title_x=0.5,
                       margin=dict(l=20, r=20, t=40, b=20),
