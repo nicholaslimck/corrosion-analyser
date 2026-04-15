@@ -93,4 +93,8 @@ jobs:
         env:
           deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl "$deploy_url"
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$deploy_url")
+          if [ "$response" -lt 200 ] || [ "$response" -ge 300 ]; then
+            echo "Deploy webhook failed with status $response"
+            exit 1
+          fi

@@ -28,7 +28,7 @@ if 'REDIS_URL' in environ:
 else:
     # Diskcache for non-production apps when developing locally
     import diskcache
-    cache = diskcache.Cache("./cache")
+    cache = diskcache.Cache("/tmp/corrosion-analyser-cache")
     background_callback_manager = DiskcacheManager(
         cache, cache_by=[lambda: launch_uid], expire=60
     )
@@ -56,7 +56,7 @@ if 'REDIS_URL' in environ:
 else:
     cache = Cache(app.server, config={
         'CACHE_TYPE': 'filesystem',
-        'CACHE_DIR': 'cache-directory'
+        'CACHE_DIR': '/tmp/corrosion-analyser-flask-cache'
     })
 
 app.layout = html.Div([
