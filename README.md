@@ -3,33 +3,50 @@ Analyse corroded pipelines and assess the integrity and remaining life as per [D
 
 Corrosion analyser is a web application that allows users to quickly analyse the integrity of corroded pipelines. The application is built using [Dash](https://dash.plotly.com/).
 
-|                               Desktop Web UI                               |                              Mobile Web UI                               |
-|:--------------------------------------------------------------------------:|:------------------------------------------------------------------------:|
-| ![Alt text](/docs/CorrosionAnalyserDesktopInputWebUI.png "Desktop Web UI") | ![Alt text](/docs/CorrosionAnalyserMobileInputWebUI.png "Mobile Web UI") |
+|                                        Desktop Web UI                                         |                                       Mobile Web UI                                        |
+|:---------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------------------:|
+| ![Desktop input interface](/docs/CorrosionAnalyserDesktopInputWebUI.png "Desktop Web UI") | ![Mobile input interface](/docs/CorrosionAnalyserMobileInputWebUI.png "Mobile Web UI") |
 
 ## Features
-- Analyse corroded pipelines
-- Assess the integrity and remaining life of corroded pipelines
-- Graphically visualise computed results
+- Pressure resistance calculation for longitudinal corrosion defects
+- Maximum allowable defect depth assessment
+- Defect interaction analysis for multiple defects
+- Corrosion rate and remaining life estimation from time-shifted measurements
+- Support for superimposed compressive longitudinal stress
+- Configurable safety classes, inspection methods, and measurement accuracy
+- Graphical visualisation of results with pipe and defect cross-sections
 
-![Alt text](/docs/CorrosionAnalyserOutputWebUI.png "Desktop Output Web UI")
+![Analysis output with graphs and pass/fail assessment](/docs/CorrosionAnalyserOutputWebUI.png "Desktop Output Web UI")
 
 ## Usage
-1. Input the pipeline details
-2. Input the corrosion details
-3. Click the "Calculate" button to get the results
-4. The results will be displayed below the input form
+1. Open the Defect Analysis page
+2. Click "Input Parameters" to open the sidebar and enter pipeline, defect, and environment details
+3. Click "Analyse" to run the assessment
+4. View the results: defect depth plot, cross-section diagrams, and pass/fail evaluation
 
 ## Deploy
 The application can be accessed [here](https://corrosion-analyser.onrender.com/).
 
 ### Local Development
 1. Clone the repository and navigate to the project directory
-2. Install Python 3.11
+2. Install Python (>=3.10, <3.12)
 3. Install [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer)
 4. Install the dependencies using `poetry install`
 5. Run the application using `poetry run python -m src.app`
 6. Open the browser and navigate to [http://localhost:8050](http://localhost:8050)
+
+### Testing
+```shell
+poetry run pytest
+poetry run pytest --cov=src --cov-report=term-missing
+```
+
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Logging level | `INFO` (Docker), `DEBUG` (local) |
+| `REDIS_URL` | Redis URL for Celery/caching in production | Not set (uses local diskcache) |
+| `DOCKER` | Set to `true` when running in Docker | Not set |
 
 ### Run with Docker
 ```shell
@@ -93,6 +110,7 @@ classDiagram
     class Pipe{
         +dict config
         +Defect defect
+        +list~Defect~ defects
         +Environment environment
         +Loading loading
         +Properties properties
@@ -116,6 +134,7 @@ classDiagram
         +float depth
         +float relative_depth
         +float relative_depth_with_uncertainty
+        +list~Defect~ defects
         +float length_correction_factor
         +float pressure_resistance
         +float measurement_timestamp
