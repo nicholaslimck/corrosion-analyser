@@ -47,7 +47,7 @@ class Loading:
     loading_stress: float = 0
 
     def __post_init__(self):
-        if self.axial_stress or self.bending_stress and not self.loading_stress:
+        if (self.axial_stress or self.bending_stress) and not self.loading_stress:
             self.loading_stress = self.axial_stress + self.bending_stress
 
 
@@ -271,6 +271,9 @@ class Pipe:
         Returns:
 
         """
+        if len(self.defects) < 2:
+            raise ValueError("Two defect measurements required to estimate remaining life")
+
         if self.properties.pressure_resistance < self.properties.effective_pressure:
             logger.info('Pipe has already failed, skipping remaining life calculation')
             self.properties.remaining_life = 0
@@ -333,7 +336,7 @@ class Pipe:
 
         d_ts = ts_1 - ts_0
 
-        if d_ts == 0:
+        if abs(d_ts) < 1:
             raise ValueError("Timestamps must be different to calculate corrosion rate")
 
         r_corr_depth = 86400 * (d_1 - d_0) / d_ts
