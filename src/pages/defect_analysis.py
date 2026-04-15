@@ -275,6 +275,9 @@ def layout():
                 [
                     dbc.ModalHeader(dbc.ModalTitle("Input Error")),
                     dbc.ModalBody(id='single_defect_input_error_modal_body'),
+                    dbc.ModalFooter(
+                        dbc.Button("Close", id="single_defect_error_close", className="ms-auto", n_clicks=0)
+                    ),
                 ],
                 id="single_defect_input_error_modal",
                 is_open=False,
@@ -440,13 +443,13 @@ def calculate_pipe_characteristics(
 ):
     def set_dtypes(table_data):
         for item in table_data:
-            if item['Value'] == '':
+            if item['Value'] == '' or item['Value'] is None:
                 item['Value'] = None
             else:
                 try:
                     item['Value'] = float(item['Value'])
                 except (ValueError, TypeError):
-                    pass
+                    raise ValueError(f"'{item['Value']}' is not a valid number for {item['Parameter']}")
         return table_data
 
     start_time = time.time()
@@ -494,11 +497,14 @@ def calculate_pipe_characteristics(
         Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
         """
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
-    except Exception as e:
-        # Upon error, open the modal
-        logger.error(f"Error while loading single-defect scenario: {e}")
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
         error_encountered = True
         error = str(e)
+    except Exception as e:
+        logger.exception(f"Unexpected error while loading single-defect scenario: {e}")
+        error_encountered = True
+        error = "An unexpected error occurred. Please check your inputs and try again."
         fig1 = no_update
         fig2 = no_update
         fig3 = no_update
@@ -582,3 +588,12 @@ def toggle_collapse(n, is_open):
     if n:
         return not is_open
     return is_open
+
+
+@callback(
+    Output("single_defect_input_error_modal", "is_open", allow_duplicate=True),
+    Input("single_defect_error_close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def close_error_modal(n_clicks):
+    return False

@@ -71,6 +71,16 @@ class Pipe:
         self.loading = None
         self.properties = Properties()
 
+        # Validate critical dimensions
+        if self.config['outside_diameter'] <= 0:
+            raise ValueError("Outside diameter must be positive")
+        if self.config['wall_thickness'] <= 0:
+            raise ValueError("Wall thickness must be positive")
+        if self.config['wall_thickness'] >= self.config['outside_diameter'] / 2:
+            raise ValueError("Wall thickness must be less than half the outside diameter")
+        if self.config['design_pressure'] <= 0:
+            raise ValueError("Design pressure must be positive")
+
         logger.debug("Initialising pipe")
         logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | t={self.config['wall_thickness']}")
         self.dimensions = PipeDimensions(self.config['outside_diameter'], self.config['wall_thickness'])
