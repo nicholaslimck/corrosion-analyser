@@ -9,8 +9,8 @@ from loguru import logger
 from src.utils.layout import center_align_style
 from src.utils import models
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
-from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot, generate_defect_cross_section_plot,
-                                           generate_pipe_properties_table)
+from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot,
+                                           generate_defect_cross_section_plot)
 
 dash.register_page(__name__)
 
@@ -247,12 +247,14 @@ def update_graph(example_selected):
         f"""Effective Pressure:         {pipe.properties.effective_pressure:.2f} N/mm^2
         Pressure Resistance:        {pipe.properties.pressure_resistance:.2f} N/mm^2
         """)
-    evaluation = f"""
-            Effective Pressure {pipe.properties.effective_pressure:.2f} MPa 
-            {'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} 
-            Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  
-            Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
-            """
+    comparison = '<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'
+    status = 'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'
+    evaluation = (
+        f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
+        f"{comparison} "
+        f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  \n"
+        f"Corrosion is **{status}**."
+    )
     description = [html.Div(contents, style={
         'whiteSpace': 'pre-line', 'display': 'inline-block', "padding": "0px 10px", "vertical-align": "text-top"})
                    for contents in description]

@@ -1,5 +1,3 @@
-import math
-
 from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_circumferential_corroded_length_ratio)
 
@@ -31,6 +29,7 @@ def calculate_pressure_capacity(
         p_cap: Pressure Capacity
     """
     q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
+    # 1.05: capacity correction factor per DNV-RP-F101 Section 2.1, Eq. (1)
     p_cap = 1.05 * ((2 * t_nominal * sigma_u) / (d_nominal - t_nominal)) * ((1 - defect_depth) / (1 - defect_depth / q))
     return p_cap
 

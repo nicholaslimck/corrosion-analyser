@@ -479,8 +479,10 @@ def calculate_pipe_characteristics(
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe)
 
-        analysis = f"""Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  
-        Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"""
+        analysis = (
+            f"Effective Pressure:\t{pipe.properties.effective_pressure:.2f} MPa  \n"
+            f"Pressure Resistance:\t{pipe.properties.pressure_resistance:.2f} MPa"
+        )
         if any([defect.position for defect in pipe.defects]):
             if len(pipe.defects) == 3:
                 analysis += "  \nDefect interaction found"
@@ -490,12 +492,14 @@ def calculate_pipe_characteristics(
         if pipe.properties.remaining_life is not None:
             analysis += f"  \nRemaining Life:\t{pipe.properties.remaining_life:.0f} days"
 
-        evaluation = f"""
-        Effective Pressure {pipe.properties.effective_pressure:.2f} MPa 
-        {'<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'} 
-        Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  
-        Corrosion is **{'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'}**.
-        """
+        comparison = '<' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else '>'
+        status = 'acceptable' if pipe.properties.effective_pressure < pipe.properties.pressure_resistance else 'unacceptable'
+        evaluation = (
+            f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
+            f"{comparison} "
+            f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.  \n"
+            f"Corrosion is **{status}**."
+        )
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
         logger.error(f"Validation error: {e}")

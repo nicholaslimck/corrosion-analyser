@@ -5,17 +5,12 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal,
-                                                        calculate_max_defect_depth_longitudinal_with_stress,
-                                                        calculate_maximum_defect_length, calculate_combined_length,
-                                                        calculate_combined_depth, verify_interaction)
+from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal_with_stress,
+                                                        calculate_maximum_defect_length, verify_interaction)
 from src.utils.calculations.pressure_calculations import (calculate_pressure_resistance_longitudinal_defect,
                                                           calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
-from src.utils.calculations.statistical_calculations import (calculate_std_dev, calculate_partial_safety_factors,
-                                                             calculate_usage_factors)
 from .material import MaterialProperties
 from .defect import Defect
-from .environment import Environment
 from .factors import Factors
 
 
@@ -136,7 +131,7 @@ class Pipe:
             self.loading = Loading(usage_factor=self.factors.xi, loading_stress=combined_stress)
 
     def set_environment(self, environment):
-        logger.info(f"Setting environment")
+        logger.info("Setting environment")
         self.environment = environment
         self.environment.calculate_external_pressure()
         self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
@@ -201,7 +196,7 @@ class Pipe:
         Returns:
             limits: pd.DataFrame representation of the maximum acceptable relative defect depth at each length
         """
-        logger.info(f"Calculating limits for defect depth and length")
+        logger.info("Calculating limits for defect depth and length")
 
         defects = self.defects.copy()
 
@@ -230,6 +225,11 @@ class Pipe:
                     logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
                     if all([relative_depth, length]):
                         rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
+                if not rows:
+                    logger.warning("No valid defect length found for any depth")
+                    self.properties.maximum_allowable_defect_depth.append(
+                        pd.DataFrame(columns=['defect_length', 'defect_relative_depth']))
+                    continue
                 minimum_values = {'defect_length': 0.0, 'defect_relative_depth': rows[-1]['defect_relative_depth']}
                 rows.append(pd.DataFrame(minimum_values, index=[0]))
             else:  # Calculate with loading
@@ -298,7 +298,7 @@ class Pipe:
         # Find the point where the defect depth and length reach the maximum allowable defect depth/length
         d_t = d_0
         l_t = l_0
-        w_t = w_0
+        w_t = w_0  # noqa: F841
         failure = False
         maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
         filtered_allowable_depth = maximum_allowable_defect_depth[
@@ -352,8 +352,6 @@ class Pipe:
         r_corr_depth = 86400 * (d_1 - d_0) / d_ts
         r_corr_length = 86400 * (l_1 - l_0) / d_ts
         if all([w_0, w_1]):
-            r_corr_width = 86400 * (w_1 - w_0) / d_ts
+            r_corr_width = 86400 * (w_1 - w_0) / d_ts  # noqa: F841
 
         return r_corr_depth, r_corr_length
-
-

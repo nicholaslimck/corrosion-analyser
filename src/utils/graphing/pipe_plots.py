@@ -1,6 +1,5 @@
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.utils import models
 
@@ -65,7 +64,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
         fig: Figure
     """
     thickness = pipe.dimensions.wall_thickness
-    longest_defect = max([defect.length for defect in pipe.defects])
+    longest_defect = max([defect.length for defect in pipe.defects])  # noqa: F841
     if len(pipe.defects) > 1:
         position_range = pipe.defects[0].length + pipe.defects[1].length + pipe.defects[0].position + pipe.defects[1].position
     else:

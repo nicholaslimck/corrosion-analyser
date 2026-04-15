@@ -39,8 +39,9 @@ class Defect:
             inspection_method = self.defects[0].factors.inspection_method
             combined_length = calculate_combined_length(self.defects)
             combined_depth = calculate_combined_depth(self.defects, inspection_method)
-            combined_stdev = (sum([defect.length * defect.factors.standard_deviation for defect in self.defects]) /
-                     combined_length)
+            combined_stdev = (
+                sum([defect.length * defect.factors.standard_deviation for defect in self.defects])
+                / combined_length)
             factors = Factors(
                 safety_class=self.defects[0].factors.safety_class,
                 inspection_method=self.defects[0].factors.inspection_method,
