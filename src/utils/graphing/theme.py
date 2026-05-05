@@ -1,3 +1,9 @@
+"""Plotly chart theming for dark and light colour palettes.
+
+Public API:
+    get_palette(theme) -> dict
+    apply_theme(fig, theme) -> go.Figure
+"""
 import plotly.graph_objects as go
 
 _DARK = dict(
@@ -22,11 +28,11 @@ _LIGHT = dict(
     marker_fail_color='#dc2626',
 )
 
-PALETTES = {'dark': _DARK, 'light': _LIGHT}
+_PALETTES = {'dark': _DARK, 'light': _LIGHT}
 
 
 def get_palette(theme: str = 'dark') -> dict:
-    return PALETTES.get(theme, _DARK)
+    return _PALETTES.get(theme, _DARK)
 
 
 def apply_theme(fig: go.Figure, theme: str = 'dark') -> go.Figure:
