@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, State, callback
+from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, State
 from flask_caching import Cache
 from loguru import logger
 
