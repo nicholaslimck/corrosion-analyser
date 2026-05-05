@@ -80,7 +80,6 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400,
 
 
 def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 400, theme: str = 'dark') -> go.Figure:
-    p = get_palette(theme)
     thickness = pipe.dimensions.wall_thickness
     longest_defect = max([defect.length for defect in pipe.defects])  # noqa: F841
     if len(pipe.defects) > 1:
