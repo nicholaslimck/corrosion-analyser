@@ -63,6 +63,7 @@ navbar = dbc.NavbarSimple(
     brand='Corrosion Analyser',
     brand_href='/',
     fluid=True,
+    style={'backgroundColor': 'var(--bg-surface)', 'borderBottom': '1px solid var(--border)'},
 )
 
 app.layout = html.Div([
