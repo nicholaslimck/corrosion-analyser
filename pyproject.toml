@@ -16,7 +16,7 @@ loguru = "^0.7.2"
 waitress = "^3.0.0"
 flask-caching = "^2.1.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
 syrupy = "^4.0.8"
 pytest-cov = "^4.1.0"
