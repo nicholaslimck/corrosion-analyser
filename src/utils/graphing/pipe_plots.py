@@ -80,8 +80,8 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400,
 
 
 def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 400, theme: str = 'dark') -> go.Figure:
+    p = get_palette(theme)
     thickness = pipe.dimensions.wall_thickness
-    longest_defect = max([defect.length for defect in pipe.defects])  # noqa: F841
     if len(pipe.defects) > 1:
         position_range = (pipe.defects[0].length + pipe.defects[1].length
                           + pipe.defects[0].position + pipe.defects[1].position)
@@ -120,7 +120,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     fig.add_annotation(
         x=position_range * 0.25, y=thickness / 2,
         text=f"t = {thickness:.1f} mm",
-        showarrow=False, font=dict(size=11, color="white"),
+        showarrow=False, font=dict(size=11, color=p['font_color']),
     )
 
     for index, defect in enumerate(pipe.defects):
@@ -140,7 +140,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     fig.add_annotation(
         x=x_mid, y=remaining / 2,
         text=f"Remaining: {remaining:.1f} mm",
-        showarrow=False, font=dict(size=10, color="white"),
+        showarrow=False, font=dict(size=10, color=p['font_color']),
     )
 
     fig.update_xaxes(range=[-position_range * 0.3, position_range * 2],
