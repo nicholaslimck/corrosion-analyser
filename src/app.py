@@ -49,6 +49,9 @@ else:
         'CACHE_DIR': '/tmp/corrosion-analyser-flask-cache'
     })
 
+_NAVBAR_STYLE_DARK = {'backgroundColor': '#1e293b', 'borderBottom': '1px solid #334155'}
+_NAVBAR_STYLE_LIGHT = {'backgroundColor': '#f8fafc', 'borderBottom': '1px solid #e2e8f0'}
+
 navbar = dbc.NavbarSimple(
     [
         *[
@@ -60,10 +63,11 @@ navbar = dbc.NavbarSimple(
                        className='navbar-theme-toggle', n_clicks=0)
         ),
     ],
+    id='main-navbar',
     brand='Corrosion Analyser',
     brand_href='/',
     fluid=True,
-    style={'backgroundColor': 'var(--bg-surface)', 'borderBottom': '1px solid var(--border)'},
+    style=_NAVBAR_STYLE_DARK,
 )
 
 app.layout = html.Div([
@@ -79,6 +83,7 @@ app.layout = html.Div([
     Output('theme-stylesheet', 'href'),
     Output('theme-store', 'data'),
     Output('theme-toggle', 'children'),
+    Output('main-navbar', 'style'),
     Input('theme-toggle', 'n_clicks'),
     Input('theme-store', 'modified_timestamp'),
     State('theme-store', 'data'),
@@ -91,7 +96,8 @@ def manage_theme(n_clicks, ts, current_theme):
         new_theme = current_theme or 'dark'
     href = LIGHT_THEME_URL if new_theme == 'light' else DARK_THEME_URL
     icon = '☀️' if new_theme == 'dark' else '🌙'
-    return href, new_theme, icon
+    navbar_style = _NAVBAR_STYLE_DARK if new_theme == 'dark' else _NAVBAR_STYLE_LIGHT
+    return href, new_theme, icon, navbar_style
 
 
 app.clientside_callback(
