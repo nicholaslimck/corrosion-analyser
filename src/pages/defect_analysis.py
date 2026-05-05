@@ -71,6 +71,11 @@ def layout():
             _input_row('Axial Stress', 'input-axial-stress', None, 'MPa'),
             _input_row('Bending Stress', 'input-bending-stress', None, 'MPa'),
             _input_row('Combined Stress', 'input-combined-stress', None, 'MPa'),
+            dbc.Tooltip(
+                "Auto-calculated from Axial + Bending if both are set. "
+                "Treated as a compressive load. Requires Defect Width.",
+                target='input-combined-stress',
+            ),
         ], title='Loading & Stress', item_id='loading'),
     ], active_item=['pipe-geometry', 'defect'], always_open=True)
 
@@ -391,6 +396,19 @@ def calculate_pipe_characteristics(
     fig1 = fig2 = fig3 = analysis = evaluation = no_update
 
     try:
+        required = {
+            'Outer Diameter': outer_diameter, 'Wall Thickness': wall_thickness,
+            'SMTS': smts, 'Defect Length': defect_length, 'Defect Depth': defect_depth,
+            'Defect Elevation': defect_elevation, 'Design Pressure': design_pressure,
+            'Design Temperature': design_temp, 'Incidental/Design Ratio': incidental_ratio,
+            'Accuracy': accuracy, 'Confidence Level': confidence_level,
+            'Seawater Density': seawater_density, 'Containment Density': containment_density,
+            'Elevation Reference': elevation_reference,
+        }
+        missing = [k for k, v in required.items() if v is None]
+        if missing:
+            raise ValueError(f"Required fields are empty: {', '.join(missing)}")
+
         pipe = create_pipe(pipe_data)
 
         fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme)
@@ -494,6 +512,7 @@ def close_error_modal(n_clicks):
     Output("input_sidebar", "is_open"),
     Input("input_sidebar_toggle", "n_clicks"),
     State("input_sidebar", "is_open"),
+    prevent_initial_call=True,
 )
 def toggle_input_sidebar(n, is_open):
     if n:
