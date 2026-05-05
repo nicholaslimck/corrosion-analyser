@@ -41,7 +41,8 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
             'defect_relative_depth': defect.relative_depth,
             'pressure_resistance': round(defect.pressure_resistance, 2)
         }, index=[0])
-        colour = p['marker_pass_color'] if pipe.properties.effective_pressure <= defect.pressure_resistance else p['marker_fail_color']
+        passes = pipe.properties.effective_pressure <= defect.pressure_resistance
+        colour = p['marker_pass_color'] if passes else p['marker_fail_color']
         marker = px.scatter(marker_df, x='defect_length', y='defect_relative_depth',
                             text='pressure_resistance', color_discrete_sequence=[colour])
         fig.add_trace(marker.data[0])

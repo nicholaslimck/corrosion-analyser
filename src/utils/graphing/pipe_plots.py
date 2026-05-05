@@ -99,7 +99,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
 
     for index, defect in enumerate(pipe.defects):
         x0 = (position_range * 0.5 + pipe.defects[0].length + defect.position
-               if index == 1 else position_range * 0.5)
+              if index == 1 else position_range * 0.5)
         opacity = 0.3 if index == 2 else 0.7
         if len(pipe.defects) == 1:
             name = "Measured Defect"
