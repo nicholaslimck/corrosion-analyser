@@ -133,4 +133,5 @@ dmypy.json
 
 # Flask-caching
 cache/
-cache-directory/
+cache-directory/.superpowers/
+docs/superpowers/
