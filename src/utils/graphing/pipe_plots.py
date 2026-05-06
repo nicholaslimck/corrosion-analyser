@@ -79,7 +79,7 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400,
     fig.update_layout(title_text="Pipe Cross-Section", title_x=0.5,
                       margin=dict(l=20, r=20, t=40, b=20))
     apply_theme(fig, theme)
-    fig.update_layout(paper_bgcolor=p['plot_bgcolor'])
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
 
@@ -157,5 +157,5 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     fig.update_layout(title_text="Defect Cross-Section", title_x=0.5,
                       margin=dict(l=0, r=0, t=40, b=0))
     apply_theme(fig, theme)
-    fig.update_layout(paper_bgcolor=p['plot_bgcolor'])
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
