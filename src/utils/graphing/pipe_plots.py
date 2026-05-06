@@ -150,7 +150,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
     fig.update_xaxes(range=[-position_range * 0.3, position_range * 2],
                      zeroline=False, showticklabels=False, showgrid=False,
                      fixedrange=True)
-    fig.update_yaxes(range=[-thickness * 0.1, thickness * 1.15],
+    fig.update_yaxes(range=[0, thickness],
                      zeroline=False, showticklabels=False, showgrid=False,
                      fixedrange=True)
 
