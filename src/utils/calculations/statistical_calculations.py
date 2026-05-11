@@ -126,13 +126,14 @@ def calculate_usage_factors(safety_class: str) -> float:
     Returns:
         usage_factor: xi
     """
+    safety_class = safety_class.lower()
     if safety_class == 'low':
         return 0.9
     elif safety_class == 'medium':
         return 0.85
     elif safety_class == 'high':
         return 0.8
-    elif safety_class == 'very_high':
+    elif safety_class == 'very high':
         return 0.75
     else:
         raise ValueError(f"Invalid safety class provided: {safety_class}")

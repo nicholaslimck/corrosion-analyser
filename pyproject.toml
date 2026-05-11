@@ -7,20 +7,20 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.12"
-pandas = "^1.4.3"
+pandas = "^2.3.0"
 dash = {extras = ["celery", "diskcache"], version = "^2.16.0"}
 scipy = "^1.9.1"
 dash-bootstrap-components = "^1.5.0"
 sympy = "^1.12"
 loguru = "^0.7.2"
-dash-ag-grid = "^2.4.0"
 waitress = "^3.0.0"
 flask-caching = "^2.1.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
 syrupy = "^4.0.8"
 pytest-cov = "^4.1.0"
+flake8 = "^7.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

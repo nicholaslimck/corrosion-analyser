@@ -1,37 +1,57 @@
 import dash
-from dash import html, dcc
 import dash_bootstrap_components as dbc
-
-from src.utils.layout import center_align_style
+from dash import html, dcc
 
 dash.register_page(__name__, path='/')
 
-layout = dbc.Container(
-    [
-        dbc.Row(dbc.Col(
-            dcc.Markdown(
-                """
-                # Pipeline Corrosion Analyser
-                ## Based on DNV-RP-F101
-                This application is designed to assist in the assessment of corrosion defects in steel pipelines.
-                
-                Steel pipeline networks are used extensively in the oil and gas industry to transport materials over long distances. 
-                Such pipelines are subjected to regular corrosion damage during operation and such damage must be assessed during regular inspections.
-                
-                ![corrosion_modes](https://ars.els-cdn.com/content/image/1-s2.0-S1875510019302239-fx1_lrg.jpg#threeQuarterWidth "Different forms of internal corrosion in hydrocarbon pipelines")
-                
-                *Different forms of internal corrosion in hydrocarbon pipelines. (Askari et al. 2019)*
-                
-                The DNV-RP-F101 recommended practice provides guidelines for the assessment of such corrosion defects in carbon steel pipelines. 
-                This application is an implementation of the recommended practice to simplify the assessment process.
-                
-                Example data is provided to demonstrate the assessment under <dccLink href="/examples" children="Examples" />.
-                
-                To begin analysing defects, go to <dccLink href="/defect-analysis" children="Defect analysis" />. 
-                """,
-                dangerously_allow_html=True
-            )
-        ), style=center_align_style)
-    ],
-    fluid=True
-)
+layout = dbc.Container([
+    html.Div([
+        html.P("DNV-RP-F101", className="hero-eyebrow"),
+        html.H1("Pipeline Corrosion\nAnalyser", className="hero-title"),
+        html.P(
+            "Assess corroded pipeline integrity per DNV-RP-F101. "
+            "Calculate pressure resistance, maximum allowable defect depths, "
+            "and remaining service life.",
+            className="hero-subtitle"
+        ),
+        html.Div([
+            dcc.Link(
+                dbc.Button("Start Analysis →", color="primary", className="me-3"),
+                href="/defect-analysis"
+            ),
+            dcc.Link(
+                dbc.Button("View Examples", color="primary", outline=True),
+                href="/examples"
+            ),
+        ]),
+    ], className="hero-section"),
+
+    dbc.Row([
+        dbc.Col(html.Div([
+            html.P("⊘", className="feature-icon"),
+            html.P("Single Defect", className="feature-title"),
+            html.P(
+                "Assess individual corrosion defects against DNV-RP-F101 allowable limits.",
+                className="feature-desc"
+            ),
+        ], className="feature-card"), xs=12, md=4, className="mb-3"),
+
+        dbc.Col(html.Div([
+            html.P("⊕", className="feature-icon"),
+            html.P("Interacting Defects", className="feature-title"),
+            html.P(
+                "Evaluate nearby defects that combine into a single effective larger defect.",
+                className="feature-desc"
+            ),
+        ], className="feature-card"), xs=12, md=4, className="mb-3"),
+
+        dbc.Col(html.Div([
+            html.P("◷", className="feature-icon"),
+            html.P("Remaining Life", className="feature-title"),
+            html.P(
+                "Predict remaining service life from time-shifted corrosion measurements.",
+                className="feature-desc"
+            ),
+        ], className="feature-card"), xs=12, md=4, className="mb-3"),
+    ], className="px-4 pb-4"),
+], fluid=True)

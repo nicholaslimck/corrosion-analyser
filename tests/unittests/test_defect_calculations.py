@@ -1,10 +1,13 @@
 import pytest
 
-from src.utils.calculations.defect_calculations import (calculate_length_correction_factor, \
+from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_relative_defect_depth_with_inaccuracies,
                                                         calculate_circumferential_corroded_length_ratio,
-                                                        calculate_max_defect_depth_longitudinal)
-from src.utils.calculations.pressure_calculations import calculate_pressure_resistance_longitudinal_defect
+                                                        calculate_max_defect_depth_longitudinal,
+                                                        calculate_max_defect_depth_longitudinal_with_stress)
+from src.utils.calculations.pressure_calculations import (
+    calculate_pressure_resistance_longitudinal_defect,
+    calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 
 
 def test_calc_length_correction_factor(example_a_1, snapshot):
@@ -62,5 +65,50 @@ def test_calculate_max_defect_depth_longitudinal_equivalence():
     )
     assert max_defect_depth == pytest.approx(relative_defect_depth)
 
-# def test_calculate_max_defect_depth_longitudinal_with_stress(snapshot):
-#     assert False
+
+def test_calculate_max_defect_depth_longitudinal_with_stress_equivalence():
+    gamma_m = 0.85
+    gamma_d = 1.28
+    pipe_thickness = 19.1
+    defect_length = 200
+    defect_width = 100
+    pipe_diameter = 812.8
+    relative_defect_depth = 0.34
+    epsilon_d = 1.0
+    st_dev = 0.08
+    f_u = 495.264
+    xi = 0.85
+    sigma_l = -200
+
+    relative_defect_depth_with_uncertainty = relative_defect_depth + epsilon_d * st_dev
+
+    p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+        gamma_m=gamma_m,
+        gamma_d=gamma_d,
+        t_nominal=pipe_thickness,
+        d_nominal=pipe_diameter,
+        defect_length=defect_length,
+        defect_width=defect_width,
+        defect_relative_depth_measured=relative_defect_depth,
+        relative_defect_depth_with_uncertainty=relative_defect_depth_with_uncertainty,
+        f_u=f_u,
+        sigma_l=sigma_l,
+        phi=xi,
+    )
+
+    max_depth = calculate_max_defect_depth_longitudinal_with_stress(
+        gamma_m=gamma_m,
+        gamma_d=gamma_d,
+        pipe_diameter=pipe_diameter,
+        pipe_thickness=pipe_thickness,
+        defect_length=defect_length,
+        defect_width=defect_width,
+        f_u=f_u,
+        p_corr_comp=p_corr_comp,
+        xi=xi,
+        sigma_l=sigma_l,
+        epsilon_d=epsilon_d,
+        st_dev=st_dev,
+    )
+
+    assert max_depth == pytest.approx(relative_defect_depth, abs=1e-6)

@@ -28,13 +28,20 @@ class Defect:
             raise ValueError('Either defects or length must be provided')
         if self.length and not (self.depth or self.relative_depth):
             raise ValueError('Either depth or relative depth must be provided')
+        if self.length is not None and self.length <= 0:
+            raise ValueError('Defect length must be positive')
+        if self.depth is not None and self.depth < 0:
+            raise ValueError('Defect depth cannot be negative')
+        if self.relative_depth is not None and not (0 < self.relative_depth < 1):
+            raise ValueError('Relative defect depth must be between 0 and 1 (exclusive)')
         if self.defects:
             logger.info('Calculating combined defect dimensions')
             inspection_method = self.defects[0].factors.inspection_method
             combined_length = calculate_combined_length(self.defects)
             combined_depth = calculate_combined_depth(self.defects, inspection_method)
-            combined_stdev = (sum([defect.length * defect.factors.standard_deviation for defect in self.defects]) /
-                     combined_length)
+            combined_stdev = (
+                sum([defect.length * defect.factors.standard_deviation for defect in self.defects])
+                / combined_length)
             factors = Factors(
                 safety_class=self.defects[0].factors.safety_class,
                 inspection_method=self.defects[0].factors.inspection_method,

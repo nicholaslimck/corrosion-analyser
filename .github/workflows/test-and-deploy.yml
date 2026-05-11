@@ -30,14 +30,13 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 . --count --max-complexity=26 --max-line-length=127 --statistics --extend-ignore=E501,E122
     - name: Install Poetry
       run: |
         poetry install
     - name: Run test
       run: |
-        poetry run pytest
+        poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=35
   push_to_registry:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
@@ -94,4 +93,8 @@ jobs:
         env:
           deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl "$deploy_url"
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$deploy_url")
+          if [ "$response" -lt 200 ] || [ "$response" -ge 300 ]; then
+            echo "Deploy webhook failed with status $response"
+            exit 1
+          fi
