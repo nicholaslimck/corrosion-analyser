@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from src.utils.models.pipe import Pipe, Loading, DesignLimits
@@ -201,6 +202,50 @@ class TestDefect:
         defect.complete_dimensions()
         assert defect.depth == pytest.approx(0.25 * 19.1)
 
+    def test_complete_dimensions_from_absolute_depth(self):
+        factors = Factors(
+            safety_class='medium',
+            inspection_method='relative',
+            measurement_accuracy=0.1,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        defect = Defect(length=200, depth=4.775, factors=factors)
+        defect.complete_dimensions()
+        assert defect.relative_depth == pytest.approx(4.775 / 19.1)
+
+    def test_combined_defect_creation(self):
+        factors = Factors(
+            safety_class='medium',
+            inspection_method='relative',
+            measurement_accuracy=0.1,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        d1 = Defect(length=100, relative_depth=0.3, position=0, factors=factors)
+        d2 = Defect(length=80, relative_depth=0.5, position=50, factors=factors)
+        combined = Defect(defects=[d1, d2])
+        # L1 + L2 + (pos2 - pos1) = 100 + 80 + 50 = 230
+        assert combined.length == pytest.approx(230)
+        # Weighted average over combined length: (0.3*100 + 0.5*80) / 230
+        assert combined.relative_depth == pytest.approx((0.3 * 100 + 0.5 * 80) / 230)
+        assert combined.factors is not None
+
+    def test_combined_defect_creation_absolute(self):
+        # Covers the absolute-method branch: self.depth = combined_depth
+        factors = Factors(
+            safety_class='medium',
+            inspection_method='absolute',
+            measurement_accuracy=0.05,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        d1 = Defect(length=100, depth=5.0, position=0, factors=factors)
+        d2 = Defect(length=80, depth=8.0, position=50, factors=factors)
+        combined = Defect(defects=[d1, d2])
+        assert combined.length == pytest.approx(230)
+        assert combined.depth == pytest.approx((5.0 * 100 + 8.0 * 80) / 230)
+
 
 # --- Pipe ---
 
@@ -351,3 +396,107 @@ class TestPipe:
         pipe.properties.effective_pressure = 20.0
         pipe.estimate_remaining_life()
         assert pipe.properties.remaining_life == 0
+
+    def test_repr(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        assert repr(pipe) == "Pipe(D=812.8, t=19.1)"
+
+    def test_calculate_pressure_resistance_with_loading(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, width=50, relative_depth=0.25))
+        pipe.add_loading(combined_stress=-200)
+        pipe.calculate_pressure_resistance()
+        assert pipe.properties.pressure_resistance > 0
+
+    def test_calculate_pressure_resistance_with_interacting_defects(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        # separation + lengths = 50 + 100 + 100 = 250 < 5*sqrt(812.8*19.1) ≈ 623 → interact
+        d1 = Defect(length=100, relative_depth=0.25, position=0)
+        d2 = Defect(length=100, relative_depth=0.30, position=50)
+        pipe.add_defect(d1)
+        pipe.add_defect(d2)
+        pipe.calculate_pressure_resistance()
+        assert len(pipe.defects) == 3  # d1, d2, combined
+        assert pipe.properties.pressure_resistance > 0
+
+    def test_calculate_maximum_allowable_defect_depth_ignores_second_defect(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.add_defect(Defect(length=220, relative_depth=0.30, measurement_timestamp=86400))
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+
+    def test_calculate_maximum_allowable_defect_depth_with_loading(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, width=50, relative_depth=0.25))
+        pipe.add_loading(combined_stress=-200)
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+        assert len(pipe.properties.maximum_allowable_defect_depth[0]) > 0
+
+    def test_calculate_corrosion_rate_single_defect_raises(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=0))
+        with pytest.raises(ValueError, match="Multiple defects"):
+            pipe.calculate_corrosion_rate()
+
+    def test_calculate_corrosion_rate_timestamps_too_close_raises(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=220, relative_depth=0.30, measurement_timestamp=0.5))
+        with pytest.raises(ValueError, match="Timestamps must be different"):
+            pipe.calculate_corrosion_rate()
+
+    def test_calculate_maximum_allowable_defect_depth_no_valid_rows(self, valid_config):
+        # Extreme pressure (p_li - p_le >> p_0) makes every depth invalid → empty DataFrame
+        valid_config['design_pressure'] = 5000
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+        assert len(pipe.properties.maximum_allowable_defect_depth[0]) == 0
+
+    def test_calculate_corrosion_rate_with_width(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, width=40, relative_depth=0.25, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=220, width=50, relative_depth=0.30, measurement_timestamp=86400))
+        r_depth, r_length = pipe.calculate_corrosion_rate()
+        assert r_depth == pytest.approx(0.05)
+        assert r_length == pytest.approx(20.0)
+
+    def test_estimate_remaining_life(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        # r_corr = 0.01/day depth, 1.0/day length
+        pipe.add_defect(Defect(length=250, relative_depth=0.20, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=251, relative_depth=0.21, measurement_timestamp=86400))
+        pipe.properties.pressure_resistance = 20.0
+        pipe.properties.effective_pressure = 15.0
+        # Two-row df: at l_t=300 depth threshold is 0.80 (not yet failed, covers else:break);
+        # at l_t=350 threshold is 0.25 (d_t=1.20 >= 0.25 → failure after 99 steps).
+        # remaining_life = (1.20 - 0.21) / 0.01 = 99 days
+        df = pd.DataFrame({
+            'defect_length': [300.0, 350.0],
+            'defect_relative_depth': [0.80, 0.25],
+        })
+        pipe.properties.maximum_allowable_defect_depth = [df]
+        pipe.estimate_remaining_life()
+        assert pipe.properties.remaining_life == pytest.approx(99.0)
