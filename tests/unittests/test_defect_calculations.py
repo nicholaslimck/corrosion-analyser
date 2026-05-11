@@ -4,10 +4,16 @@ from src.utils.calculations.defect_calculations import (calculate_length_correct
                                                         calculate_relative_defect_depth_with_inaccuracies,
                                                         calculate_circumferential_corroded_length_ratio,
                                                         calculate_max_defect_depth_longitudinal,
-                                                        calculate_max_defect_depth_longitudinal_with_stress)
+                                                        calculate_max_defect_depth_longitudinal_with_stress,
+                                                        calculate_combined_length,
+                                                        calculate_combined_depth,
+                                                        verify_interaction,
+                                                        calculate_maximum_defect_depth,
+                                                        calculate_maximum_defect_length)
 from src.utils.calculations.pressure_calculations import (
     calculate_pressure_resistance_longitudinal_defect,
     calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
+from src.utils.models.defect import Defect
 
 
 def test_calc_length_correction_factor(example_a_1, snapshot):
@@ -112,3 +118,71 @@ def test_calculate_max_defect_depth_longitudinal_with_stress_equivalence():
     )
 
     assert max_depth == pytest.approx(relative_defect_depth, abs=1e-6)
+
+
+# --- Defect depth formula ---
+
+def test_calculate_maximum_defect_depth():
+    # 1/1.28 - 1.0 * 0.08 = 0.70125
+    result = calculate_maximum_defect_depth(gamma_d=1.28, epsilon_d=1.0, std_dev=0.08)
+    assert result == pytest.approx(0.70125)
+
+
+# --- Maximum defect length ---
+
+def test_calculate_maximum_defect_length_valid():
+    # DNV example: defect (l=200, d/t=0.25) passes → max allowable length > 200
+    l_acc = calculate_maximum_defect_length(
+        d=812.8, t=19.1,
+        gamma_d=1.28, gamma_m=0.85,
+        f_u=495.264,
+        p_li=16.6962, p_le=1.005525,
+        d_t_meas=0.25, epsilon_d=1.0, st_dev=0.08
+    )
+    assert l_acc is not None
+    assert l_acc > 200
+
+
+def test_calculate_maximum_defect_length_requires_depth_inputs():
+    with pytest.raises(ValueError):
+        calculate_maximum_defect_length(d=812.8, t=19.1, gamma_d=1.28, gamma_m=0.85,
+                                        f_u=495.264, p_li=16.6962, p_le=1.005525)
+
+
+# --- Defect interaction ---
+
+def test_calculate_combined_length():
+    d1 = Defect(length=100, relative_depth=0.3, position=0)
+    d2 = Defect(length=80, relative_depth=0.5, position=50)
+    # L1 + L2 + (pos2 - pos1) = 100 + 80 + 50
+    assert calculate_combined_length([d1, d2]) == pytest.approx(230)
+
+
+def test_calculate_combined_depth_relative():
+    d1 = Defect(length=100, relative_depth=0.3, position=0)
+    d2 = Defect(length=80, relative_depth=0.5, position=50)
+    # (0.3*100 + 0.5*80) / 230 = 70/230
+    expected = (0.3 * 100 + 0.5 * 80) / 230
+    assert calculate_combined_depth([d1, d2], 'relative') == pytest.approx(expected)
+
+
+def test_calculate_combined_depth_absolute():
+    d1 = Defect(length=100, depth=5.0, position=0)
+    d2 = Defect(length=80, depth=8.0, position=50)
+    combined_len = 100 + 80 + 50
+    expected = (5.0 * 100 + 8.0 * 80) / combined_len
+    assert calculate_combined_depth([d1, d2], 'absolute') == pytest.approx(expected)
+
+
+def test_verify_interaction_true():
+    # separation + lengths = 50 + 100 + 100 = 250 < 5*sqrt(812.8*19.1) ≈ 623
+    d1 = Defect(length=100, relative_depth=0.3, position=0)
+    d2 = Defect(length=100, relative_depth=0.3, position=50)
+    assert verify_interaction([d1, d2], pipe_diameter=812.8, pipe_thickness=19.1)
+
+
+def test_verify_interaction_false():
+    # separation + lengths = 500 + 100 + 100 = 700 > 623
+    d1 = Defect(length=100, relative_depth=0.3, position=0)
+    d2 = Defect(length=100, relative_depth=0.3, position=500)
+    assert not verify_interaction([d1, d2], pipe_diameter=812.8, pipe_thickness=19.1)

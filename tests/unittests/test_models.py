@@ -5,6 +5,8 @@ from src.utils.models.defect import Defect
 from src.utils.models.material import MaterialProperties, estimate_de_rating_stress_or_strength
 from src.utils.models.environment import Environment
 from src.utils.models.factors import Factors
+from src.utils.models.parameter import Parameter
+from src.utils.calculations.pressure_calculations import calculate_pressure_resistance_longitudinal_defect
 
 
 # --- MaterialProperties ---
@@ -59,6 +61,28 @@ class TestLoading:
         assert loading.loading_stress == 0
 
 
+# --- Parameter ---
+
+class TestParameter:
+    def test_with_value_and_unit(self):
+        p = Parameter(value=42.0, unit='mm')
+        assert p.value == 42.0
+        assert p.unit == 'mm'
+
+    def test_without_unit(self):
+        p = Parameter(value=100)
+        assert p.value == 100
+        assert p.unit is None
+
+    def test_int_value(self):
+        p = Parameter(value=5, unit='bar')
+        assert p.value == 5
+
+    def test_float_value(self):
+        p = Parameter(value=3.14, unit='MPa')
+        assert p.value == pytest.approx(3.14)
+
+
 # --- Factors ---
 
 class TestFactors:
@@ -75,6 +99,29 @@ class TestFactors:
         assert factors.gamma_d is not None
         assert factors.epsilon_d is not None
         assert factors.standard_deviation is not None
+
+    @pytest.mark.parametrize('safety_class,inspection_method,expected_gamma_m,expected_xi', [
+        ('low', 'relative', 0.90, 0.9),
+        ('low', 'absolute', 0.94, 0.9),
+        ('medium', 'relative', 0.85, 0.85),
+        ('medium', 'absolute', 0.88, 0.85),
+        ('high', 'relative', 0.80, 0.8),
+        ('high', 'absolute', 0.82, 0.8),
+        ('very high', 'relative', 0.76, 0.75),
+        ('very high', 'absolute', 0.77, 0.75),
+    ])
+    def test_all_safety_class_combinations(self, safety_class, inspection_method, expected_gamma_m, expected_xi):
+        factors = Factors(
+            safety_class=safety_class,
+            inspection_method=inspection_method,
+            measurement_accuracy=0.05,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        assert factors.gamma_m == expected_gamma_m
+        assert factors.xi == expected_xi
+        assert factors.gamma_d is not None
+        assert factors.epsilon_d is not None
 
 
 # --- Environment ---
@@ -211,3 +258,96 @@ class TestPipe:
         pipe.add_defect(defect)
         with pytest.raises(ValueError, match="Two defect measurements required"):
             pipe.estimate_remaining_life()
+
+    def test_add_defect(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        defect = Defect(length=200, relative_depth=0.25)
+        pipe.add_defect(defect)
+        assert pipe.defect is defect
+        assert defect.depth == pytest.approx(0.25 * 19.1)
+        assert defect.relative_depth_with_uncertainty is not None
+        assert defect.length_correction_factor > 1.0
+
+    def test_add_loading_axial_and_bending(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_loading(axial_load=100, bending_load=50)
+        assert pipe.loading is not None
+        assert pipe.loading.loading_stress == pytest.approx(150)
+        assert pipe.loading.usage_factor == pipe.factors.xi
+
+    def test_add_loading_combined_stress(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_loading(combined_stress=200)
+        assert pipe.loading.loading_stress == pytest.approx(200)
+
+    def test_set_environment(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        assert pipe.environment is not None
+        assert pipe.environment.external_pressure == pytest.approx(1.005525)
+        assert pipe.environment.incidental_pressure > 0
+
+    def test_calculate_pressure_resistance(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        defect = Defect(length=200, relative_depth=0.25)
+        pipe.add_defect(defect)
+        pipe.calculate_pressure_resistance()
+        assert pipe.properties.pressure_resistance > 0
+        # Round-trip: must match direct calculation with the same factors
+        expected = calculate_pressure_resistance_longitudinal_defect(
+            gamma_m=pipe.factors.gamma_m,
+            gamma_d=pipe.factors.gamma_d,
+            t_nominal=pipe.dimensions.wall_thickness,
+            defect_length=defect.length,
+            d_nominal=pipe.dimensions.outside_diameter,
+            relative_defect_depth_with_uncertainty=defect.relative_depth_with_uncertainty,
+            f_u=pipe.material_properties.f_u,
+            q=defect.length_correction_factor
+        )
+        assert pipe.properties.pressure_resistance == pytest.approx(expected)
+
+    def test_calculate_effective_pressure(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.calculate_effective_pressure()
+        expected = env.incidental_pressure - env.external_pressure
+        assert pipe.properties.effective_pressure == pytest.approx(expected)
+
+    def test_calculate_maximum_allowable_defect_depth(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=0, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+        df = pipe.properties.maximum_allowable_defect_depth[0]
+        assert 'defect_length' in df.columns
+        assert 'defect_relative_depth' in df.columns
+        assert len(df) > 0
+
+    def test_calculate_corrosion_rate(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        # defect2 measured 1 day after defect1, with increased depth and length
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=220, relative_depth=0.30, measurement_timestamp=86400))
+        r_depth, r_length = pipe.calculate_corrosion_rate()
+        # 86400 * (0.30 - 0.25) / 86400 = 0.05/day; 86400 * 20 / 86400 = 20 mm/day
+        assert r_depth == pytest.approx(0.05)
+        assert r_length == pytest.approx(20.0)
+
+    def test_estimate_remaining_life_already_failed(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=220, relative_depth=0.30, measurement_timestamp=86400))
+        pipe.properties.pressure_resistance = 1.0
+        pipe.properties.effective_pressure = 20.0
+        pipe.estimate_remaining_life()
+        assert pipe.properties.remaining_life == 0
