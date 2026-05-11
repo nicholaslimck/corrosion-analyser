@@ -24,8 +24,8 @@ poetry run pytest --cov
 # Run a single test file
 poetry run pytest tests/unittests/test_pressure_calculations.py
 
-# Lint
-flake8 . --max-complexity=10 --max-line-length=127
+# Lint (config in .flake8)
+flake8 .
 
 # Docker
 docker compose up
