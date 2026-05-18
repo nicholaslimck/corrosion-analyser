@@ -356,6 +356,16 @@ class TestPipe:
         )
         assert pipe.properties.pressure_resistance == pytest.approx(expected)
 
+    def test_calculate_pressure_resistance_dnv_example(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=30, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_pressure_resistance()
+        # DNV-RP-F101 Appendix A example A.1 expects ~17.08 MPa
+        assert pipe.properties.pressure_resistance == pytest.approx(17.08, rel=1e-2)
+
     def test_calculate_effective_pressure(self, valid_config):
         pipe = Pipe(config=valid_config)
         env = Environment(seawater_density=1025, containment_density=200,
@@ -364,6 +374,16 @@ class TestPipe:
         pipe.calculate_effective_pressure()
         expected = env.incidental_pressure - env.external_pressure
         assert pipe.properties.effective_pressure == pytest.approx(expected)
+
+    def test_calculate_effective_pressure_less_than_resistance(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=30, elevation=-100)
+        pipe.set_environment(env)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        assert pipe.properties.effective_pressure < pipe.properties.pressure_resistance
 
     def test_calculate_maximum_allowable_defect_depth(self, valid_config):
         pipe = Pipe(config=valid_config)
@@ -500,3 +520,15 @@ class TestPipe:
         pipe.properties.maximum_allowable_defect_depth = [df]
         pipe.estimate_remaining_life()
         assert pipe.properties.remaining_life == pytest.approx(99.0)
+
+    def test_estimate_remaining_life_zero_corrosion_rate(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=0))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=86400))
+        pipe.properties.pressure_resistance = 20.0
+        pipe.properties.effective_pressure = 15.0
+        pipe.properties.maximum_allowable_defect_depth = [pd.DataFrame({
+            'defect_length': [300.0], 'defect_relative_depth': [0.80]
+        })]
+        pipe.estimate_remaining_life()
+        assert pipe.properties.remaining_life is None
