@@ -253,7 +253,6 @@ def verify_interaction(defects: list, pipe_diameter, pipe_thickness):
     separation = defects[1].position - defects[0].position
     # DNV-RP-F101 Section 3.7.5: defects interact when combined extent < 5.0*sqrt(D*t)
     minimum_length = 5.0 * sqrt(pipe_diameter * pipe_thickness)
-    minimum_overlap = 2.5 * sqrt(pipe_diameter * pipe_thickness)  # noqa: F841
     if separation + sum([defect.length for defect in defects]) < minimum_length:
         return True
     else:

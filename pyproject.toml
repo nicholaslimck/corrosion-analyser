@@ -6,8 +6,10 @@ authors = ["Nicholas Lim <nicholaslimck@gmail.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.12"
+python = ">=3.10, <3.14"
 pandas = "^2.3.0"
+numpy = ">=1.24"
+plotly = ">=5.0"
 dash = {extras = ["celery", "diskcache"], version = "^2.16.0"}
 scipy = "^1.9.1"
 dash-bootstrap-components = "^1.5.0"
@@ -28,4 +30,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-#addopts = "--cov utils"
+addopts = "--cov src"

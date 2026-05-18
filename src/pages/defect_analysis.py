@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
-from src.utils.layout import center_align_style
+from src.utils.layout import center_align_style, build_evaluation_alert
 
 dash.register_page(__name__)
 
@@ -230,18 +230,18 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     safety_class = pipe_data['Safety Class']['Value']
 
     measurement_method = "relative" if pipe_data['Defect Depth']['Unit'] == "t" else "absolute"
-    pipe_config = {
-        'outside_diameter': diameter,
-        'wall_thickness': wall_thickness,
-        'smts': smts,
-        'design_pressure': design_pressure,
-        'design_temperature': design_temperature,
-        'incidental_to_design_pressure_ratio': incidental_to_design_pressure_ratio,
-        'accuracy': accuracy,
-        'confidence_level': confidence_level,
-        'safety_class': safety_class,
-        'measurement_method': measurement_method,
-    }
+    pipe_config = models.PipeConfig(
+        outside_diameter=diameter,
+        wall_thickness=wall_thickness,
+        smts=smts,
+        design_pressure=design_pressure,
+        design_temperature=design_temperature,
+        incidental_to_design_pressure_ratio=incidental_to_design_pressure_ratio,
+        accuracy=accuracy,
+        confidence_level=confidence_level,
+        safety_class=safety_class,
+        measurement_method=measurement_method,
+    )
 
     defect_depth_unit = pipe_data['Defect Depth']['Unit']
     defect_config = {
@@ -298,13 +298,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     if loading_config:
         pipe.add_loading(**loading_config)
     pipe.set_environment(environment)
-
-    pipe.calculate_pressure_resistance()
-    pipe.calculate_effective_pressure()
-    pipe.calculate_maximum_allowable_defect_depth()
-
-    if len(pipe.defects) > 1 and all(d.measurement_timestamp for d in pipe.defects):
-        pipe.estimate_remaining_life()
+    pipe.analyze()
 
     return pipe
 
@@ -434,20 +428,7 @@ def calculate_pipe_characteristics(
             dbc.ListGroup(result_items, flush=True),
         ], className="mt-3 mb-3")
 
-        is_acceptable = pipe.properties.effective_pressure < pipe.properties.pressure_resistance
-        comparison = '<' if is_acceptable else '>'
-        status = 'acceptable' if is_acceptable else 'unacceptable'
-        evaluation = dbc.Alert(
-            [
-                html.P(f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
-                       f"{comparison} "
-                       f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.",
-                       className="mb-2"),
-                html.H5(f"Corrosion is {status}.", className="mb-0"),
-            ],
-            color="success" if is_acceptable else "danger",
-            className="mt-3 text-center",
-        )
+        evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
         logger.error(f"Validation error: {e}")

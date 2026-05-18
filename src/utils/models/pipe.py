@@ -13,6 +13,8 @@ from .material import MaterialProperties
 from .defect import Defect
 from .factors import Factors
 
+_SECONDS_PER_DAY = 86400
+
 
 @dataclass
 class PipeDimensions:
@@ -54,48 +56,67 @@ class Properties:
     remaining_life: float = None
 
 
+@dataclass
+class PipeConfig:
+    """
+    Typed configuration for constructing a Pipe.
+
+    Dimensions in mm, pressure in bar, temperature in °C.
+    Provide either smts or smys (or both); at least one is required by MaterialProperties.
+    """
+    outside_diameter: float
+    wall_thickness: float
+    design_pressure: float
+    design_temperature: float
+    incidental_to_design_pressure_ratio: float
+    accuracy: float
+    confidence_level: float
+    safety_class: str
+    measurement_method: str
+    smts: float = None
+    smys: float = None
+    alpha_u: float = 0.96
+
+    def __post_init__(self):
+        if self.outside_diameter <= 0:
+            raise ValueError("Outside diameter must be positive")
+        if self.wall_thickness <= 0:
+            raise ValueError("Wall thickness must be positive")
+        if self.wall_thickness >= self.outside_diameter / 2:
+            raise ValueError("Wall thickness must be less than half the outside diameter")
+        if self.design_pressure <= 0:
+            raise ValueError("Design pressure must be positive")
+
+
 class Pipe:
-    def __init__(
-            self,
-            config: dict
-    ):
-        self.config = config
+    def __init__(self, config: PipeConfig):
         self.defect = None
         self.defects = []
         self.environment = None
         self.loading = None
         self.properties = Properties()
 
-        # Validate critical dimensions
-        if self.config['outside_diameter'] <= 0:
-            raise ValueError("Outside diameter must be positive")
-        if self.config['wall_thickness'] <= 0:
-            raise ValueError("Wall thickness must be positive")
-        if self.config['wall_thickness'] >= self.config['outside_diameter'] / 2:
-            raise ValueError("Wall thickness must be less than half the outside diameter")
-        if self.config['design_pressure'] <= 0:
-            raise ValueError("Design pressure must be positive")
-
         logger.debug("Initialising pipe")
-        logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | t={self.config['wall_thickness']}")
-        self.dimensions = PipeDimensions(self.config['outside_diameter'], self.config['wall_thickness'])
-        alpha_u = self.config.get('alpha_u', 0.96)
+        logger.debug(f"Pipe dimensions: D={config.outside_diameter} | t={config.wall_thickness}")
+        self.dimensions = PipeDimensions(config.outside_diameter, config.wall_thickness)
         logger.debug(
-            f"Material properties: alpha_u={alpha_u} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
+            f"Material properties: alpha_u={config.alpha_u} | temperature={config.design_temperature} | smts={config.smts} | smys={config.smys}")
         self.material_properties = MaterialProperties(
-            alpha_u=alpha_u,
-            temperature=self.config['design_temperature'],
-            smts=self.config.get('smts'),
-            smys=self.config.get('smys')
+            alpha_u=config.alpha_u,
+            temperature=config.design_temperature,
+            smts=config.smts,
+            smys=config.smys
         )
-        self.design_limits = DesignLimits(self.config['design_pressure'], self.config['design_temperature'],
-                                          self.config['incidental_to_design_pressure_ratio'])
-
+        self.design_limits = DesignLimits(
+            config.design_pressure,
+            config.design_temperature,
+            config.incidental_to_design_pressure_ratio
+        )
         self.factors = Factors(
-            safety_class=self.config['safety_class'],
-            inspection_method=self.config['measurement_method'],
-            measurement_accuracy=self.config['accuracy'],
-            confidence_level=self.config['confidence_level'],
+            safety_class=config.safety_class,
+            inspection_method=config.measurement_method,
+            measurement_accuracy=config.accuracy,
+            confidence_level=config.confidence_level,
             wall_thickness=self.dimensions.wall_thickness
         )
 
@@ -135,6 +156,20 @@ class Pipe:
         self.environment = environment
         self.environment.calculate_external_pressure()
         self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
+
+    def analyze(self):
+        """Run all calculations in the required order."""
+        if not self.defects:
+            raise ValueError("At least one defect must be added before analysis")
+        if not self.environment:
+            raise ValueError("Environment must be set before analysis")
+
+        self.calculate_pressure_resistance()
+        self.calculate_effective_pressure()
+        self.calculate_maximum_allowable_defect_depth()
+
+        if len(self.defects) >= 2 and all(d.measurement_timestamp for d in self.defects):
+            self.estimate_remaining_life()
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
@@ -295,11 +330,18 @@ class Pipe:
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
+        if r_corr <= 0:
+            logger.info('Non-positive corrosion rate, pipe will not fail')
+            self.properties.remaining_life = None
+            return
+
         # Find the point where the defect depth and length reach the maximum allowable defect depth/length
         d_t = d_0
         l_t = l_0
         w_t = w_0  # noqa: F841
         failure = False
+        max_iterations = 1_000_000
+        iteration = 0
         maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
         filtered_allowable_depth = maximum_allowable_defect_depth[
             (maximum_allowable_defect_depth['defect_length'] > l_t) &
@@ -309,6 +351,12 @@ class Pipe:
         while not failure:
             d_t += r_corr
             l_t += r_corr_length
+            iteration += 1
+
+            if iteration >= max_iterations:
+                logger.warning('Remaining life iteration limit reached without failure condition')
+                self.properties.remaining_life = None
+                return
 
             for row in filtered_allowable_depth.itertuples():
                 if math.isclose(l_t, row.defect_length, abs_tol=0.5):
@@ -349,9 +397,9 @@ class Pipe:
         if abs(d_ts) < 1:
             raise ValueError("Timestamps must be different to calculate corrosion rate")
 
-        r_corr_depth = 86400 * (d_1 - d_0) / d_ts
-        r_corr_length = 86400 * (l_1 - l_0) / d_ts
-        if all([w_0, w_1]):
-            r_corr_width = 86400 * (w_1 - w_0) / d_ts  # noqa: F841
+        r_corr_depth = _SECONDS_PER_DAY * (d_1 - d_0) / d_ts
+        r_corr_length = _SECONDS_PER_DAY * (l_1 - l_0) / d_ts
+        if w_0 and w_1:
+            r_corr_width = _SECONDS_PER_DAY * (w_1 - w_0) / d_ts  # noqa: F841
 
         return r_corr_depth, r_corr_length

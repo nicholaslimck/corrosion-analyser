@@ -7,6 +7,7 @@ from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
+from src.utils.layout import build_evaluation_alert
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
 from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot,
                                            generate_defect_cross_section_plot)
@@ -61,75 +62,69 @@ def layout():
 
 
 def example_a_1_1():
-    pipe_config = {
-        'outside_diameter': 812.8,
-        'wall_thickness': 19.1,
-        'alpha_u': 0.96,
-        'smts': 530.9,
-        'design_pressure': 150,
-        'design_temperature': 75,
-        'incidental_to_design_pressure_ratio': 1.1,
-        'accuracy': 0.1,
-        'confidence_level': 0.8,
-        'safety_class': 'medium',
-        'measurement_method': 'relative',
-    }
+    pipe_config = models.PipeConfig(
+        outside_diameter=812.8,
+        wall_thickness=19.1,
+        alpha_u=0.96,
+        smts=530.9,
+        design_pressure=150,
+        design_temperature=75,
+        incidental_to_design_pressure_ratio=1.1,
+        accuracy=0.1,
+        confidence_level=0.8,
+        safety_class='medium',
+        measurement_method='relative',
+    )
     pipe = models.Pipe(config=pipe_config)
     pipe.add_defect(models.Defect(length=200, relative_depth=0.25))
     pipe.set_environment(models.Environment(seawater_density=1025, containment_density=200,
                                             elevation_reference=30, elevation=-100))
-    pipe.calculate_pressure_resistance()
-    pipe.calculate_effective_pressure()
-    pipe.calculate_maximum_allowable_defect_depth()
+    pipe.analyze()
     return pipe
 
 
 def example_a_1_2():
-    pipe_config = {
-        'outside_diameter': 812.8,
-        'wall_thickness': 19.1,
-        'alpha_u': 0.96,
-        'smts': 530.9,
-        'design_pressure': 150,
-        'design_temperature': 75,
-        'incidental_to_design_pressure_ratio': 1.1,
-        'accuracy': 1,
-        'confidence_level': 0.8,
-        'safety_class': 'medium',
-        'measurement_method': 'absolute',
-    }
+    pipe_config = models.PipeConfig(
+        outside_diameter=812.8,
+        wall_thickness=19.1,
+        alpha_u=0.96,
+        smts=530.9,
+        design_pressure=150,
+        design_temperature=75,
+        incidental_to_design_pressure_ratio=1.1,
+        accuracy=1,
+        confidence_level=0.8,
+        safety_class='medium',
+        measurement_method='absolute',
+    )
     pipe = models.Pipe(config=pipe_config)
     pipe.add_defect(models.Defect(length=200, relative_depth=0.25))
     pipe.set_environment(models.Environment(seawater_density=1025, containment_density=200,
                                             elevation_reference=30, elevation=-200))
-    pipe.calculate_pressure_resistance()
-    pipe.calculate_effective_pressure()
-    pipe.calculate_maximum_allowable_defect_depth()
+    pipe.analyze()
     return pipe
 
 
 def example_a_1_3():
-    pipe_config = {
-        'outside_diameter': 219.0,
-        'wall_thickness': 14.5,
-        'alpha_u': 0.96,
-        'smts': 455.1,
-        'design_pressure': 150,
-        'design_temperature': 100,
-        'incidental_to_design_pressure_ratio': 1.0,
-        'accuracy': 0.1,
-        'confidence_level': 0.8,
-        'safety_class': 'medium',
-        'measurement_method': 'relative',
-    }
+    pipe_config = models.PipeConfig(
+        outside_diameter=219.0,
+        wall_thickness=14.5,
+        alpha_u=0.96,
+        smts=455.1,
+        design_pressure=150,
+        design_temperature=100,
+        incidental_to_design_pressure_ratio=1.0,
+        accuracy=0.1,
+        confidence_level=0.8,
+        safety_class='medium',
+        measurement_method='relative',
+    )
     pipe = models.Pipe(config=pipe_config)
     pipe.add_defect(models.Defect(length=200.0, width=100.0, relative_depth=0.62))
     pipe.set_environment(models.Environment(seawater_density=1025, containment_density=200,
                                             elevation_reference=30, elevation=-100))
     pipe.add_loading(combined_stress=-200)
-    pipe.calculate_pressure_resistance()
-    pipe.calculate_effective_pressure()
-    pipe.calculate_maximum_allowable_defect_depth()
+    pipe.analyze()
     return pipe
 
 
@@ -211,19 +206,6 @@ def update_graph(example_selected, theme):
         className="mb-3"
     )
 
-    is_acceptable = pipe.properties.effective_pressure < pipe.properties.pressure_resistance
-    comparison = '<' if is_acceptable else '>'
-    status = 'acceptable' if is_acceptable else 'unacceptable'
-    evaluation = dbc.Alert(
-        [
-            html.P(f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
-                   f"{comparison} "
-                   f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.",
-                   className="mb-2"),
-            html.H5(f"Corrosion is {status}.", className="mb-0"),
-        ],
-        color="success" if is_acceptable else "danger",
-        className="mt-3 text-center",
-    )
+    evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
     logger.info(f"Loaded {example_selected} | Time elapsed: {time.time() - start_time:.2f}s")
     return fig_defect_assessment, fig_pipe_cross_section, fig_defect_cross_section, description, evaluation

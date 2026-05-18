@@ -4,23 +4,23 @@ import plotly.graph_objects as go
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
 from src.utils.graphing.pipe_plots import generate_pipe_cross_section_plot, generate_defect_cross_section_plot
 from src.utils.graphing.theme import get_palette, apply_theme
-from src.utils.models.pipe import Pipe
+from src.utils.models.pipe import Pipe, PipeConfig
 from src.utils.models.defect import Defect
 from src.utils.models.environment import Environment
 
 
-_BASE_CONFIG = {
-    'outside_diameter': 812.8,
-    'wall_thickness': 19.1,
-    'smts': 530.9,
-    'design_pressure': 150,
-    'design_temperature': 75,
-    'incidental_to_design_pressure_ratio': 1.1,
-    'accuracy': 0.1,
-    'confidence_level': 0.8,
-    'safety_class': 'medium',
-    'measurement_method': 'relative',
-}
+_BASE_CONFIG = PipeConfig(
+    outside_diameter=812.8,
+    wall_thickness=19.1,
+    smts=530.9,
+    design_pressure=150,
+    design_temperature=75,
+    incidental_to_design_pressure_ratio=1.1,
+    accuracy=0.1,
+    confidence_level=0.8,
+    safety_class='medium',
+    measurement_method='relative',
+)
 
 
 def _make_env():
