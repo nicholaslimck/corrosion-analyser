@@ -1,8 +1,6 @@
 import math
 from dataclasses import dataclass, field
 
-_SECONDS_PER_DAY = 86400
-
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -14,6 +12,8 @@ from src.utils.calculations.pressure_calculations import (calculate_pressure_res
 from .material import MaterialProperties
 from .defect import Defect
 from .factors import Factors
+
+_SECONDS_PER_DAY = 86400
 
 
 @dataclass
@@ -56,48 +56,67 @@ class Properties:
     remaining_life: float = None
 
 
+@dataclass
+class PipeConfig:
+    """
+    Typed configuration for constructing a Pipe.
+
+    Dimensions in mm, pressure in bar, temperature in °C.
+    Provide either smts or smys (or both); at least one is required by MaterialProperties.
+    """
+    outside_diameter: float
+    wall_thickness: float
+    design_pressure: float
+    design_temperature: float
+    incidental_to_design_pressure_ratio: float
+    accuracy: float
+    confidence_level: float
+    safety_class: str
+    measurement_method: str
+    smts: float = None
+    smys: float = None
+    alpha_u: float = 0.96
+
+    def __post_init__(self):
+        if self.outside_diameter <= 0:
+            raise ValueError("Outside diameter must be positive")
+        if self.wall_thickness <= 0:
+            raise ValueError("Wall thickness must be positive")
+        if self.wall_thickness >= self.outside_diameter / 2:
+            raise ValueError("Wall thickness must be less than half the outside diameter")
+        if self.design_pressure <= 0:
+            raise ValueError("Design pressure must be positive")
+
+
 class Pipe:
-    def __init__(
-            self,
-            config: dict
-    ):
-        self.config = config
+    def __init__(self, config: PipeConfig):
         self.defect = None
         self.defects = []
         self.environment = None
         self.loading = None
         self.properties = Properties()
 
-        # Validate critical dimensions
-        if self.config['outside_diameter'] <= 0:
-            raise ValueError("Outside diameter must be positive")
-        if self.config['wall_thickness'] <= 0:
-            raise ValueError("Wall thickness must be positive")
-        if self.config['wall_thickness'] >= self.config['outside_diameter'] / 2:
-            raise ValueError("Wall thickness must be less than half the outside diameter")
-        if self.config['design_pressure'] <= 0:
-            raise ValueError("Design pressure must be positive")
-
         logger.debug("Initialising pipe")
-        logger.debug(f"Pipe dimensions: D={self.config['outside_diameter']} | t={self.config['wall_thickness']}")
-        self.dimensions = PipeDimensions(self.config['outside_diameter'], self.config['wall_thickness'])
-        alpha_u = self.config.get('alpha_u', 0.96)
+        logger.debug(f"Pipe dimensions: D={config.outside_diameter} | t={config.wall_thickness}")
+        self.dimensions = PipeDimensions(config.outside_diameter, config.wall_thickness)
         logger.debug(
-            f"Material properties: alpha_u={alpha_u} | temperature={self.config['design_temperature']} | smts={self.config.get('smts')} | smys={self.config.get('smys')}")
+            f"Material properties: alpha_u={config.alpha_u} | temperature={config.design_temperature} | smts={config.smts} | smys={config.smys}")
         self.material_properties = MaterialProperties(
-            alpha_u=alpha_u,
-            temperature=self.config['design_temperature'],
-            smts=self.config.get('smts'),
-            smys=self.config.get('smys')
+            alpha_u=config.alpha_u,
+            temperature=config.design_temperature,
+            smts=config.smts,
+            smys=config.smys
         )
-        self.design_limits = DesignLimits(self.config['design_pressure'], self.config['design_temperature'],
-                                          self.config['incidental_to_design_pressure_ratio'])
-
+        self.design_limits = DesignLimits(
+            config.design_pressure,
+            config.design_temperature,
+            config.incidental_to_design_pressure_ratio
+        )
         self.factors = Factors(
-            safety_class=self.config['safety_class'],
-            inspection_method=self.config['measurement_method'],
-            measurement_accuracy=self.config['accuracy'],
-            confidence_level=self.config['confidence_level'],
+            safety_class=config.safety_class,
+            inspection_method=config.measurement_method,
+            measurement_accuracy=config.accuracy,
+            confidence_level=config.confidence_level,
             wall_thickness=self.dimensions.wall_thickness
         )
 
@@ -137,6 +156,20 @@ class Pipe:
         self.environment = environment
         self.environment.calculate_external_pressure()
         self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
+
+    def analyze(self):
+        """Run all calculations in the required order."""
+        if not self.defects:
+            raise ValueError("At least one defect must be added before analysis")
+        if not self.environment:
+            raise ValueError("Environment must be set before analysis")
+
+        self.calculate_pressure_resistance()
+        self.calculate_effective_pressure()
+        self.calculate_maximum_allowable_defect_depth()
+
+        if len(self.defects) >= 2 and all(d.measurement_timestamp for d in self.defects):
+            self.estimate_remaining_life()
 
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')

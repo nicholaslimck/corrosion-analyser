@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.utils.models.pipe import Pipe, Loading, DesignLimits
+from src.utils.models.pipe import Pipe, PipeConfig, Loading, DesignLimits
 from src.utils.models.defect import Defect
 from src.utils.models.material import MaterialProperties, estimate_de_rating_stress_or_strength
 from src.utils.models.environment import Environment
@@ -249,21 +249,73 @@ class TestDefect:
 
 # --- Pipe ---
 
+class TestPipeConfig:
+    @pytest.fixture
+    def valid_config(self):
+        return PipeConfig(
+            outside_diameter=812.8,
+            wall_thickness=19.1,
+            smts=530.9,
+            design_pressure=150,
+            design_temperature=75,
+            incidental_to_design_pressure_ratio=1.1,
+            accuracy=0.1,
+            confidence_level=0.8,
+            safety_class='medium',
+            measurement_method='relative'
+        )
+
+    def test_zero_diameter_raises(self):
+        with pytest.raises(ValueError, match="Outside diameter must be positive"):
+            PipeConfig(outside_diameter=0, wall_thickness=19.1, design_pressure=150,
+                       design_temperature=75, incidental_to_design_pressure_ratio=1.1,
+                       accuracy=0.1, confidence_level=0.8, safety_class='medium',
+                       measurement_method='relative')
+
+    def test_negative_diameter_raises(self):
+        with pytest.raises(ValueError, match="Outside diameter must be positive"):
+            PipeConfig(outside_diameter=-100, wall_thickness=19.1, design_pressure=150,
+                       design_temperature=75, incidental_to_design_pressure_ratio=1.1,
+                       accuracy=0.1, confidence_level=0.8, safety_class='medium',
+                       measurement_method='relative')
+
+    def test_zero_wall_thickness_raises(self):
+        with pytest.raises(ValueError, match="Wall thickness must be positive"):
+            PipeConfig(outside_diameter=812.8, wall_thickness=0, design_pressure=150,
+                       design_temperature=75, incidental_to_design_pressure_ratio=1.1,
+                       accuracy=0.1, confidence_level=0.8, safety_class='medium',
+                       measurement_method='relative')
+
+    def test_wall_thickness_too_large_raises(self):
+        with pytest.raises(ValueError, match="Wall thickness must be less than half"):
+            PipeConfig(outside_diameter=812.8, wall_thickness=500, design_pressure=150,
+                       design_temperature=75, incidental_to_design_pressure_ratio=1.1,
+                       accuracy=0.1, confidence_level=0.8, safety_class='medium',
+                       measurement_method='relative')
+
+    def test_zero_design_pressure_raises(self):
+        with pytest.raises(ValueError, match="Design pressure must be positive"):
+            PipeConfig(outside_diameter=812.8, wall_thickness=19.1, design_pressure=0,
+                       design_temperature=75, incidental_to_design_pressure_ratio=1.1,
+                       accuracy=0.1, confidence_level=0.8, safety_class='medium',
+                       measurement_method='relative')
+
+
 class TestPipe:
     @pytest.fixture
     def valid_config(self):
-        return {
-            'outside_diameter': 812.8,
-            'wall_thickness': 19.1,
-            'smts': 530.9,
-            'design_pressure': 150,
-            'design_temperature': 75,
-            'incidental_to_design_pressure_ratio': 1.1,
-            'accuracy': 0.1,
-            'confidence_level': 0.8,
-            'safety_class': 'medium',
-            'measurement_method': 'relative'
-        }
+        return PipeConfig(
+            outside_diameter=812.8,
+            wall_thickness=19.1,
+            smts=530.9,
+            design_pressure=150,
+            design_temperature=75,
+            incidental_to_design_pressure_ratio=1.1,
+            accuracy=0.1,
+            confidence_level=0.8,
+            safety_class='medium',
+            measurement_method='relative'
+        )
 
     def test_valid_construction(self, valid_config):
         pipe = Pipe(config=valid_config)
@@ -272,30 +324,19 @@ class TestPipe:
         assert pipe.material_properties.f_u is not None
         assert pipe.factors.gamma_m == 0.85
 
-    def test_zero_diameter_raises(self, valid_config):
-        valid_config['outside_diameter'] = 0
-        with pytest.raises(ValueError, match="Outside diameter must be positive"):
-            Pipe(config=valid_config)
+    def test_analyze_no_defects_raises(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        env = Environment(seawater_density=1025, containment_density=200,
+                          elevation_reference=30, elevation=-100)
+        pipe.set_environment(env)
+        with pytest.raises(ValueError, match="At least one defect"):
+            pipe.analyze()
 
-    def test_negative_diameter_raises(self, valid_config):
-        valid_config['outside_diameter'] = -100
-        with pytest.raises(ValueError, match="Outside diameter must be positive"):
-            Pipe(config=valid_config)
-
-    def test_zero_wall_thickness_raises(self, valid_config):
-        valid_config['wall_thickness'] = 0
-        with pytest.raises(ValueError, match="Wall thickness must be positive"):
-            Pipe(config=valid_config)
-
-    def test_wall_thickness_too_large_raises(self, valid_config):
-        valid_config['wall_thickness'] = 500  # >= 812.8 / 2
-        with pytest.raises(ValueError, match="Wall thickness must be less than half"):
-            Pipe(config=valid_config)
-
-    def test_zero_design_pressure_raises(self, valid_config):
-        valid_config['design_pressure'] = 0
-        with pytest.raises(ValueError, match="Design pressure must be positive"):
-            Pipe(config=valid_config)
+    def test_analyze_no_environment_raises(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        with pytest.raises(ValueError, match="Environment must be set"):
+            pipe.analyze()
 
     def test_estimate_remaining_life_single_defect_raises(self, valid_config):
         pipe = Pipe(config=valid_config)
@@ -482,8 +523,8 @@ class TestPipe:
 
     def test_calculate_maximum_allowable_defect_depth_no_valid_rows(self, valid_config):
         # Extreme pressure (p_li - p_le >> p_0) makes every depth invalid → empty DataFrame
-        valid_config['design_pressure'] = 5000
-        pipe = Pipe(config=valid_config)
+        from dataclasses import replace
+        pipe = Pipe(config=replace(valid_config, design_pressure=5000))
         env = Environment(seawater_density=1025, containment_density=200,
                           elevation_reference=0, elevation=-100)
         pipe.set_environment(env)
