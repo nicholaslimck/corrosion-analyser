@@ -326,6 +326,7 @@ class Pipe:
 
         d_0 = self.defects[1].relative_depth
         l_0 = self.defects[1].length
+        w_0 = self.defects[1].width
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
@@ -337,6 +338,7 @@ class Pipe:
         # Find the point where the defect depth and length reach the maximum allowable defect depth/length
         d_t = d_0
         l_t = l_0
+        w_t = w_0  # noqa: F841
         failure = False
         max_iterations = 1_000_000
         iteration = 0
@@ -381,11 +383,13 @@ class Pipe:
         # Get defect measurements for first defect
         d_0 = self.defects[0].relative_depth
         l_0 = self.defects[0].length
+        w_0 = self.defects[0].width
         ts_0 = self.defects[0].measurement_timestamp
 
         # Get defect measurements for second defect
         d_1 = self.defects[1].relative_depth
         l_1 = self.defects[1].length
+        w_1 = self.defects[1].width
         ts_1 = self.defects[1].measurement_timestamp
 
         d_ts = ts_1 - ts_0
@@ -395,5 +399,7 @@ class Pipe:
 
         r_corr_depth = _SECONDS_PER_DAY * (d_1 - d_0) / d_ts
         r_corr_length = _SECONDS_PER_DAY * (l_1 - l_0) / d_ts
+        if w_0 and w_1:
+            r_corr_width = _SECONDS_PER_DAY * (w_1 - w_0) / d_ts  # noqa: F841
 
         return r_corr_depth, r_corr_length
