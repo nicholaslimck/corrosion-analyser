@@ -1,5 +1,5 @@
 # Builder image
-FROM python:3.11 as builder
+FROM python:3.11 AS builder
 
 RUN pip install poetry==1.8.2
 
@@ -15,7 +15,7 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
 
 # Runtime image
-FROM python:3.11-slim as runtime
+FROM python:3.11-slim AS runtime
 
 RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 
