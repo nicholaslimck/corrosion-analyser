@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
-from src.utils.layout import center_align_style
+from src.utils.layout import center_align_style, build_evaluation_alert
 
 dash.register_page(__name__)
 
@@ -434,20 +434,7 @@ def calculate_pipe_characteristics(
             dbc.ListGroup(result_items, flush=True),
         ], className="mt-3 mb-3")
 
-        is_acceptable = pipe.properties.effective_pressure < pipe.properties.pressure_resistance
-        comparison = '<' if is_acceptable else '>'
-        status = 'acceptable' if is_acceptable else 'unacceptable'
-        evaluation = dbc.Alert(
-            [
-                html.P(f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
-                       f"{comparison} "
-                       f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.",
-                       className="mb-2"),
-                html.H5(f"Corrosion is {status}.", className="mb-0"),
-            ],
-            color="success" if is_acceptable else "danger",
-            className="mt-3 text-center",
-        )
+        evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
         logger.error(f"Validation error: {e}")

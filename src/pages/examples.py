@@ -7,6 +7,7 @@ from dash.dependencies import Input, Output, State
 from loguru import logger
 
 from src.utils import models
+from src.utils.layout import build_evaluation_alert
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
 from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot,
                                            generate_defect_cross_section_plot)
@@ -211,19 +212,6 @@ def update_graph(example_selected, theme):
         className="mb-3"
     )
 
-    is_acceptable = pipe.properties.effective_pressure < pipe.properties.pressure_resistance
-    comparison = '<' if is_acceptable else '>'
-    status = 'acceptable' if is_acceptable else 'unacceptable'
-    evaluation = dbc.Alert(
-        [
-            html.P(f"Effective Pressure {pipe.properties.effective_pressure:.2f} MPa "
-                   f"{comparison} "
-                   f"Pressure Resistance {pipe.properties.pressure_resistance:.2f} MPa.",
-                   className="mb-2"),
-            html.H5(f"Corrosion is {status}.", className="mb-0"),
-        ],
-        color="success" if is_acceptable else "danger",
-        className="mt-3 text-center",
-    )
+    evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
     logger.info(f"Loaded {example_selected} | Time elapsed: {time.time() - start_time:.2f}s")
     return fig_defect_assessment, fig_pipe_cross_section, fig_defect_cross_section, description, evaluation
