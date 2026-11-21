@@ -6,7 +6,7 @@ authors = ["Nicholas Lim <nicholaslimck@gmail.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.14"
+python = ">=3.10, <3.15"
 pandas = "^2.3.0"
 numpy = ">=1.24"
 plotly = ">=5.0"
@@ -23,6 +23,7 @@ pytest = "^7.4.0"
 syrupy = "^4.0.8"
 pytest-cov = "^4.1.0"
 flake8 = "^7.3.0"
+hypothesis = "^6.100.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
