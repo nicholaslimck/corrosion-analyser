@@ -1,6 +1,6 @@
 services:
   app:
-    image: nicholaslimck/corrosion-analyser:dev
+    image: nicholaslimck/corrosion-analyser:latest
     ports:
       - '8050:8050'
     restart: unless-stopped
