@@ -93,11 +93,11 @@ Table 3-11, and the worked examples of Appendix A (Example A.1).
 - **Interacting defects are approximated.** DNVGL-RP-F101 §3.8.2 requires a projection
   line procedure assessing all combinations of adjacent defects. This tool merges a
   single pair using the combined length and length-weighted depth of §3.8.2 Steps 7-8.
-  Circumferential projection (`Z = 360√(t/D)` degrees) is not implemented, and only
-  the first two defects are considered — additional defects are ignored with a warning
-  in the log.
-- **Maximum allowable length curves under superimposed stress** are sampled for defect
-  lengths up to 1000 mm.
+  Circumferential projection (`Z = 360√(t/D)` degrees) is not implemented, and the
+  assessment is limited to two defects — a third is rejected with an error rather than
+  silently ignored.
+- **Maximum allowable length curves** are sampled up to `max(1000 mm, 3 × the largest
+  defect length)`; defects longer than the upper bound are not represented.
 - **Temperature de-rating** follows Figure 2-3, which is defined for temperatures above
   50 °C. Assessments outside 50-200 °C are refused rather than extrapolated.
 - **Measurement method and depth units are coupled.** Entering depth as a fraction of
