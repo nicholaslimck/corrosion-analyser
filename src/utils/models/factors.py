@@ -20,7 +20,7 @@ class Factors:
     xi: float = field(init=False)                   # Usage factor for longitudinal stress
 
     def __post_init__(self):
-        if not self.standard_deviation:
+        if self.standard_deviation is None:
             logger.debug("Calculating standard deviation")
             self.standard_deviation = calculate_std_dev(
                 conf=self.confidence_level,

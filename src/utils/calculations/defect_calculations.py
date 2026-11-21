@@ -216,9 +216,9 @@ def calculate_maximum_defect_length(
     Returns:
 
     """
-    if not d_t_star and not all(value is not None for value in [d_t_meas, epsilon_d, st_dev]):
+    if d_t_star is None and not all(value is not None for value in [d_t_meas, epsilon_d, st_dev]):
         raise ValueError("Must provide a value for d_t_star or (d_t_meas, epsilon_d and st_dev)")
-    elif not d_t_star:
+    elif d_t_star is None:
         d_t_star = calculate_relative_defect_depth_with_inaccuracies(d_t_meas, epsilon_d, st_dev)
     p_0 = gamma_m * (2 * t * f_u) / (d - t)
 

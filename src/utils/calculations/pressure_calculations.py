@@ -62,7 +62,7 @@ def calculate_pressure_resistance_longitudinal_defect(
     Returns:
         p_corr: Pressure Resistance
     """
-    if not q:
+    if q is None:
         q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
     # DNVGL-RP-F101 Section 3.7.3.1: "If gamma_d (d/t)* >= 1 then pcorr = 0"
     if gamma_d * relative_defect_depth_with_uncertainty >= 1:
@@ -108,7 +108,7 @@ def calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
     Returns:
         p_corr: Pressure Resistance
     """
-    if not q:
+    if q is None:
         q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
     # DNVGL-RP-F101 Section 3.7.3.1: "If gamma_d (d/t)* >= 1 then pcorr = 0"
     if gamma_d * relative_defect_depth_with_uncertainty >= 1:

@@ -44,6 +44,7 @@ class Loading:
     loading_stress: float = 0
 
     def __post_init__(self):
+        # loading_stress defaults to 0, so a zero value means 'not supplied' here
         if (self.axial_stress or self.bending_stress) and not self.loading_stress:
             self.loading_stress = self.axial_stress + self.bending_stress
 
@@ -216,7 +217,7 @@ class Pipe:
 
         defects = self.assessment_defects
         for defect in defects:
-            if not self.loading:
+            if self.loading is None:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
                     gamma_m=defect.factors.gamma_m,
                     gamma_d=defect.factors.gamma_d,
@@ -274,7 +275,7 @@ class Pipe:
             rows = []
             if not self.loading:  # With no loading
                 for relative_depth in np.arange(0, 1, resolution):
-                    if not relative_depth:  # Depth must be greater than 0
+                    if relative_depth <= 0:  # Depth must be greater than 0
                         continue
                     length = calculate_maximum_defect_length(
                         d=self.dimensions.outside_diameter,
@@ -289,7 +290,7 @@ class Pipe:
                         st_dev=defect.factors.standard_deviation
                     )
                     logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
-                    if all([relative_depth, length]):
+                    if relative_depth > 0 and length is not None:
                         rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
                 if not rows:
                     logger.warning("No valid defect length found for any depth")

@@ -27,7 +27,7 @@ class Defect:
     def __post_init__(self):
         if not (self.defects or self.length):
             raise ValueError('Either defects or length must be provided')
-        if self.length and not (self.depth or self.relative_depth):
+        if self.length and self.depth is None and self.relative_depth is None:
             raise ValueError('Either depth or relative depth must be provided')
         if self.length is not None and self.length <= 0:
             raise ValueError('Defect length must be positive')
@@ -79,9 +79,9 @@ class Defect:
             )
 
     def complete_dimensions(self):
-        if not self.depth:
+        if self.depth is None:
             self.depth = self.relative_depth * self.factors.wall_thickness
-        if not self.relative_depth:
+        if self.relative_depth is None:
             self.relative_depth = self.depth / self.factors.wall_thickness
         self.validate_measured_depth()
 
