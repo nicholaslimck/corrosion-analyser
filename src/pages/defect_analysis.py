@@ -9,6 +9,7 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
+from src.utils.assessment import build_pipe
 from src.utils.layout import center_align_style, build_evaluation_alert
 
 dash.register_page(__name__)
@@ -219,87 +220,9 @@ def layout():
 
 
 def create_pipe(pipe_data: dict) -> models.Pipe:
-    diameter = pipe_data['Pipe Outer Diameter']['Value']
-    wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
-    smts = pipe_data['SMTS']['Value']
-    design_pressure = pipe_data['Design Pressure']['Value']
-    design_temperature = pipe_data['Design Temperature']['Value']
-    incidental_to_design_pressure_ratio = pipe_data['Incidental to Design Pressure Ratio']['Value']
-    accuracy = pipe_data['Accuracy']['Value']
-    confidence_level = pipe_data['Confidence Level']['Value']
-    safety_class = pipe_data['Safety Class']['Value']
-
-    measurement_method = "relative" if pipe_data['Defect Depth']['Unit'] == "t" else "absolute"
-    pipe_config = models.PipeConfig(
-        outside_diameter=diameter,
-        wall_thickness=wall_thickness,
-        smts=smts,
-        design_pressure=design_pressure,
-        design_temperature=design_temperature,
-        incidental_to_design_pressure_ratio=incidental_to_design_pressure_ratio,
-        accuracy=accuracy,
-        confidence_level=confidence_level,
-        safety_class=safety_class,
-        measurement_method=measurement_method,
-    )
-
-    defect_depth_unit = pipe_data['Defect Depth']['Unit']
-    defect_config = {
-        'length': pipe_data['Defect Length']['Value'],
-        'width': pipe_data['Defect Width']['Value'],
-        ("relative_depth" if defect_depth_unit == "t" else "depth"): pipe_data['Defect Depth']['Value'],
-    }
-
-    sec_depth_unit = pipe_data['Secondary Defect Depth']['Unit']
-    secondary_defect_config = {
-        'length': pipe_data['Secondary Defect Length']['Value'],
-        'width': pipe_data['Secondary Defect Width']['Value'],
-        ("relative_depth" if sec_depth_unit == "t" else "depth"): pipe_data['Secondary Defect Depth']['Value'],
-    }
-
-    if pipe_data['First Date']['Value'] and pipe_data['Second Date']['Value']:
-        first_ts = datetime.datetime.timestamp(
-            datetime.datetime.strptime(pipe_data['First Date']['Value'], '%Y-%m-%d'))
-        second_ts = datetime.datetime.timestamp(
-            datetime.datetime.strptime(pipe_data['Second Date']['Value'], '%Y-%m-%d'))
-        defect_config['measurement_timestamp'] = first_ts
-        secondary_defect_config['measurement_timestamp'] = second_ts
-
-    secondary_defect_separation = pipe_data['Secondary Defect Separation']['Value']
-    if secondary_defect_separation:
-        secondary_defect_config['position'] = secondary_defect_separation
-
-    environment_config = {
-        'seawater_density': pipe_data['Seawater Density']['Value'],
-        'containment_density': pipe_data['Containment Density']['Value'],
-        'elevation_reference': pipe_data['Elevation Reference']['Value'],
-        'elevation': pipe_data['Defect Elevation']['Value'],
-    }
-
-    combined_stress = pipe_data['Combined Stress']['Value']
-    if combined_stress:
-        if secondary_defect_separation:
-            raise ValueError('Interacting defects are not supported with superimposed stress.')
-        if not pipe_data['Defect Width']['Value']:
-            raise ValueError('Defect Width is required for stress calculations.')
-        loading_config = {'combined_stress': -abs(float(combined_stress))}
-    else:
-        loading_config = None
-
-    pipe = models.Pipe(config=pipe_config)
-    defect = models.Defect(**defect_config)
-    environment = models.Environment(**environment_config)
-
-    pipe.add_defect(defect)
-    if secondary_defect_config['length']:
-        secondary_defect = models.Defect(**secondary_defect_config)
-        pipe.add_defect(secondary_defect)
-
-    if loading_config:
-        pipe.add_loading(**loading_config)
-    pipe.set_environment(environment)
+    """Build the pipe model from the interface inputs and run the assessment."""
+    pipe = build_pipe(pipe_data)
     pipe.analyze()
-
     return pipe
 
 
@@ -390,19 +313,7 @@ def calculate_pipe_characteristics(
     fig1 = fig2 = fig3 = analysis = evaluation = no_update
 
     try:
-        required = {
-            'Outer Diameter': outer_diameter, 'Wall Thickness': wall_thickness,
-            'SMTS': smts, 'Defect Length': defect_length, 'Defect Depth': defect_depth,
-            'Defect Elevation': defect_elevation, 'Design Pressure': design_pressure,
-            'Design Temperature': design_temp, 'Incidental/Design Ratio': incidental_ratio,
-            'Accuracy': accuracy, 'Confidence Level': confidence_level,
-            'Seawater Density': seawater_density, 'Containment Density': containment_density,
-            'Elevation Reference': elevation_reference,
-        }
-        missing = [k for k, v in required.items() if v is None]
-        if missing:
-            raise ValueError(f"Required fields are empty: {', '.join(missing)}")
-
+        # Input validation and model construction live in src.utils.assessment
         pipe = create_pipe(pipe_data)
 
         fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme)
