@@ -60,7 +60,9 @@ def build_pipe(pipe_data: dict) -> models.Pipe:
     """
     validate_inputs(pipe_data)
 
-    measurement_method = "relative" if _unit_of(pipe_data, 'Defect Depth') == "t" else "absolute"
+    # The sizing accuracy is a property of the inspection, not of the depth unit: either
+    # type of accuracy can be quoted with the depth given in mm or as a fraction of t.
+    measurement_method = _value(pipe_data, 'Sizing Accuracy Type', 'relative')
 
     pipe_config = models.PipeConfig(
         outside_diameter=_value(pipe_data, 'Pipe Outer Diameter'),

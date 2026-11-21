@@ -113,23 +113,39 @@ def layout():
                             {'label': 'Low', 'value': 'low'},
                             {'label': 'Medium', 'value': 'medium'},
                             {'label': 'High', 'value': 'high'},
+                            {'label': 'Very High', 'value': 'very high'},
                         ],
                         size="sm",
                     ),
                 ]),
                 dbc.Col([
-                    html.Small("Measurement", className="text-muted"),
+                    html.Small("Defect depth unit", className="text-muted"),
                     dbc.Select(
                         id='single_defect_select_measurement',
                         value='relative',
                         options=[
-                            {'label': 'Relative', 'value': 'relative'},
-                            {'label': 'Absolute', 'value': 'absolute'},
+                            {'label': 'Fraction of t', 'value': 'relative'},
+                            {'label': 'Millimetre', 'value': 'absolute'},
                         ],
                         size="sm",
                     ),
                 ]),
-            ], className="mb-3"),
+            ], className="mb-2"),
+            dbc.Row(
+                dbc.Col([
+                    html.Small("Sizing accuracy", className="text-muted"),
+                    dbc.Select(
+                        id='single_defect_select_accuracy_type',
+                        value='relative',
+                        options=[
+                            {'label': 'Relative (fraction of t)', 'value': 'relative'},
+                            {'label': 'Absolute (mm)', 'value': 'absolute'},
+                        ],
+                        size="sm",
+                    ),
+                ]),
+                className="mb-3",
+            ),
             accordion,
             dbc.Button(
                 "Secondary Defect",
@@ -260,6 +276,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     Output('report-store', 'data'),
     Input('single_defect_table_analyse', 'n_clicks'),
     State('single_defect_select_safety_class', 'value'),
+    State('single_defect_select_accuracy_type', 'value'),
     State('input-outer-diameter', 'value'),
     State('input-wall-thickness', 'value'),
     State('input-smts', 'value'),
@@ -291,6 +308,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
 def calculate_pipe_characteristics(
         n_clicks,
         safety_class,
+        sizing_accuracy_type,
         outer_diameter, wall_thickness, smts,
         defect_length, defect_width, defect_depth, defect_depth_unit,
         defect_elevation, design_pressure, design_temp, incidental_ratio,
@@ -317,6 +335,7 @@ def calculate_pipe_characteristics(
         'Accuracy': {'Value': accuracy, 'Unit': ''},
         'Confidence Level': {'Value': confidence_level, 'Unit': ''},
         'Safety Class': {'Value': safety_class, 'Unit': ''},
+        'Sizing Accuracy Type': {'Value': sizing_accuracy_type, 'Unit': ''},
         'Seawater Density': {'Value': seawater_density, 'Unit': 'kg/m³'},
         'Containment Density': {'Value': containment_density, 'Unit': 'kg/m³'},
         'Elevation Reference': {'Value': elevation_reference, 'Unit': 'm'},
@@ -407,12 +426,17 @@ def download_json(n_clicks, report):
     Output('unit-sec-defect-depth', 'children'),
     Output('unit-accuracy', 'children'),
     Input('single_defect_select_measurement', 'value'),
+    Input('single_defect_select_accuracy_type', 'value'),
     prevent_initial_call=True,
 )
-def update_measurement_units(measurement: str):
-    if measurement == 'relative':
-        return 't', 't', ''
-    return 'mm', 'mm', 'mm'
+def update_input_units(depth_unit: str, accuracy_type: str):
+    """
+    Depth and sizing accuracy units are independent choices: the standard pairs
+    relative or absolute accuracy with either depth representation (3.3).
+    """
+    depth_label = 't' if depth_unit == 'relative' else 'mm'
+    accuracy_label = '' if accuracy_type == 'relative' else 'mm'
+    return depth_label, depth_label, accuracy_label
 
 
 @callback(

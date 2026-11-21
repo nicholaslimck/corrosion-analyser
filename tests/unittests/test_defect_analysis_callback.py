@@ -11,7 +11,7 @@ import pytest
 
 import src.app  # noqa: F401 - instantiates the Dash app so page callbacks can register
 from src.pages.defect_analysis import (
-    calculate_pipe_characteristics, download_json, download_markdown)
+    calculate_pipe_characteristics, download_json, download_markdown, update_input_units)
 from tests.unittests.test_assessment import _input, pipe_data
 
 
@@ -22,6 +22,7 @@ def callback_args(data, clicks=1, theme='dark'):
     return (
         clicks,
         value('Safety Class'),
+        value('Sizing Accuracy Type'),
         value('Pipe Outer Diameter'), value('Pipe Wall Thickness'), value('SMTS'),
         value('Defect Length'), value('Defect Width'), value('Defect Depth'),
         unit('Defect Depth'),
@@ -92,3 +93,14 @@ class TestDownloadCallbacks:
         for download in (download_markdown, download_json):
             assert download(1, None) is not None
             assert not isinstance(download(1, None), dict)
+
+
+class TestUnitCallback:
+    @pytest.mark.parametrize('depth_unit,accuracy_type,expected', [
+        ('relative', 'relative', ('t', 't', '')),
+        ('relative', 'absolute', ('t', 't', 'mm')),
+        ('absolute', 'relative', ('mm', 'mm', '')),
+        ('absolute', 'absolute', ('mm', 'mm', 'mm')),
+    ])
+    def test_depth_and_accuracy_units_are_independent(self, depth_unit, accuracy_type, expected):
+        assert update_input_units(depth_unit, accuracy_type) == expected

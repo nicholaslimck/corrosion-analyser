@@ -25,6 +25,7 @@ def pipe_data(**overrides):
         'Accuracy': _input(0.1),
         'Confidence Level': _input(0.8),
         'Safety Class': _input('medium'),
+        'Sizing Accuracy Type': _input('relative'),
         'Seawater Density': _input(1025, 'kg/m3'),
         'Containment Density': _input(200, 'kg/m3'),
         'Elevation Reference': _input(30, 'm'),
@@ -70,9 +71,9 @@ class TestBuildPipe:
         assert pipe.defect.relative_depth == 0.25
         assert pipe.defect.depth == pytest.approx(0.25 * 19.1)
 
-    def test_absolute_depth_input_selects_absolute_measurement(self):
+    def test_absolute_depth_is_parsed_as_absolute(self):
+        """A depth in mm is an absolute depth; the accuracy type is chosen separately."""
         pipe = build_pipe(pipe_data(**{'Defect Depth': _input(4.775, 'mm')}))
-        assert pipe.factors.inspection_method == 'absolute'
         assert pipe.defect.depth == 4.775
         assert pipe.defect.relative_depth == pytest.approx(0.25)
 
@@ -128,6 +129,44 @@ class TestBuildPipe:
         }))
         expected = datetime.datetime(2025, 1, 1).timestamp()
         assert pipe.defects[1].measurement_timestamp == pytest.approx(expected)
+
+
+class TestSizingAccuracyDecoupling:
+    """Either accuracy type may be quoted with either depth representation."""
+
+    def test_relative_accuracy_with_absolute_depth(self):
+        pipe = build_pipe(pipe_data(**{
+            'Defect Depth': _input(4.775, 'mm'),
+            'Sizing Accuracy Type': _input('relative'),
+        }))
+        assert pipe.factors.inspection_method == 'relative'
+        assert pipe.defect.depth == pytest.approx(4.775)
+        assert pipe.defect.relative_depth == pytest.approx(0.25)
+        # relative accuracy 0.1 at 80% confidence
+        assert pipe.factors.standard_deviation == pytest.approx(0.078, abs=1e-3)
+
+    def test_absolute_accuracy_with_relative_depth(self):
+        pipe = build_pipe(pipe_data(**{
+            'Defect Depth': _input(0.25, 't'),
+            'Sizing Accuracy Type': _input('absolute'),
+            'Accuracy': _input(0.5),
+        }))
+        assert pipe.factors.inspection_method == 'absolute'
+        assert pipe.defect.relative_depth == pytest.approx(0.25)
+        # absolute accuracy is scaled by the wall thickness and sqrt(2) (Table 3-4 to 3-6)
+        from src.utils.calculations.statistical_calculations import calculate_inv_cumulative_dist
+        expected = (2 ** 0.5 * 0.5) / (19.1 * calculate_inv_cumulative_dist(0.9))
+        assert pipe.factors.standard_deviation == pytest.approx(expected, abs=1e-12)
+
+    def test_very_high_safety_class_is_usable(self):
+        """Table D-1 allows Very High; it must produce sane factors, not zeros."""
+        pipe = build_pipe(pipe_data(**{'Safety Class': _input('very high')}))
+        assert pipe.factors.safety_class == 'very high'
+        assert pipe.factors.gamma_m == pytest.approx(0.76)
+        assert pipe.factors.gamma_d >= 1.0
+        assert pipe.factors.xi == pytest.approx(0.75)
+        pipe.analyze()
+        assert pipe.properties.pressure_resistance > 0
 
 
 class TestMeasurementOrdering:
