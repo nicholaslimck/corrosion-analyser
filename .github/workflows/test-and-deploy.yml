@@ -38,6 +38,26 @@ jobs:
     - name: Run tests
       run: poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=70
 
+    - name: Boot the application
+      run: |
+        # Catches import time failures in src/app.py, which the unit tests never
+        # touch: page registration, the background callback manager, and the
+        # flask-caching backend all execute only when the app is constructed.
+        DOCKER=true LOG_LEVEL=INFO poetry run python -m src.app &
+        app_pid=$!
+        for attempt in $(seq 1 30); do
+          if curl -fsS --max-time 2 http://localhost:8050/ > /dev/null &&
+             curl -fsS --max-time 2 http://localhost:8050/defect-analysis > /dev/null; then
+            echo "Application served / and /defect-analysis after ${attempt}s"
+            kill "$app_pid"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Application did not respond on port 8050"
+        kill "$app_pid" || true
+        exit 1
+
   push_to_registry:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
