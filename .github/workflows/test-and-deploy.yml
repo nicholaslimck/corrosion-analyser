@@ -36,7 +36,7 @@ jobs:
         poetry run flake8 .
 
     - name: Run tests
-      run: poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=35
+      run: poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=70
 
   push_to_registry:
     name: Push Docker image to Docker Hub
