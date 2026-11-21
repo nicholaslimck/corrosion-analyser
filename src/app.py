@@ -8,6 +8,7 @@ from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, Stat
 from loguru import logger
 
 from src.utils import IS_DOCKER
+from src.utils.units import PRESSURE_UNITS
 
 launch_uid = uuid4()
 
@@ -46,6 +47,16 @@ navbar = dbc.NavbarSimple(
             dbc.NavItem(dbc.NavLink(page['name'], href=page['relative_path'], active="exact"))
             for page in dash.page_registry.values()
         ],
+        dbc.NavItem(
+            dbc.Select(
+                id='pressure-unit',
+                options=[{'label': f'Pressure in {u}', 'value': u} for u in PRESSURE_UNITS],
+                value='bar',
+                size='sm',
+                className='navbar-unit-select',
+            ),
+            className='me-2',
+        ),
         dbc.NavItem(
             dbc.Button('🌙', id='theme-toggle', color='link',
                        className='navbar-theme-toggle', n_clicks=0)

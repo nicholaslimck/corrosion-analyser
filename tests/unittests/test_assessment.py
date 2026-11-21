@@ -131,6 +131,22 @@ class TestBuildPipe:
         assert pipe.defects[1].measurement_timestamp == pytest.approx(expected)
 
 
+class TestPressureUnits:
+    """The design pressure is read in whatever unit the interface quotes it in."""
+
+    @pytest.mark.parametrize('unit,entered', [('bar', 150.0), ('MPa', 15.0),
+                                              ('psi', 150.0 * 14.503773773020923)])
+    def test_same_assessment_for_equivalent_design_pressures(self, unit, entered):
+        pipe = build_pipe(pipe_data(**{'Design Pressure': _input(entered, unit)}))
+        assert pipe.design_limits.design_pressure == pytest.approx(150.0)
+        pipe.analyze()
+        reference = assess(pipe_data())
+        assert pipe.properties.effective_pressure == pytest.approx(
+            reference.properties.effective_pressure, rel=1e-9)
+        assert pipe.properties.pressure_resistance == pytest.approx(
+            reference.properties.pressure_resistance, rel=1e-9)
+
+
 class TestSizingAccuracyDecoupling:
     """Either accuracy type may be quoted with either depth representation."""
 

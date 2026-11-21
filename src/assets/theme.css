@@ -72,6 +72,13 @@ body {
   color: var(--accent) !important;
 }
 
+/* ── Navbar pressure unit selector ── */
+.navbar-unit-select {
+  width: auto;
+  min-width: 10rem;
+  font-size: 0.85rem;
+}
+
 /* ── Offcanvas sidebar ── */
 .offcanvas {
   background-color: var(--bg-surface) !important;

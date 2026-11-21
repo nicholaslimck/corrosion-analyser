@@ -16,7 +16,7 @@ from src.pages.defect_analysis import (
 from tests.unittests.test_assessment import _input, pipe_data
 
 
-def callback_args(data, clicks=1, theme='dark'):
+def callback_args(data, clicks=1, theme='dark', pressure_unit='bar'):
     """Flatten the interface inputs into the callback's positional arguments."""
     value = lambda key: data[key]['Value']          # noqa: E731
     unit = lambda key: data[key]['Unit']            # noqa: E731
@@ -37,6 +37,7 @@ def callback_args(data, clicks=1, theme='dark'):
         value('Secondary Defect Separation'),
         value('First Date'), value('Second Date'),
         theme,
+        pressure_unit,
     )
 
 

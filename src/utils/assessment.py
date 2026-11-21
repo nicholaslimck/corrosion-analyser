@@ -8,6 +8,7 @@ the application.
 import datetime
 
 from src.utils import models
+from src.utils.units import to_bar
 
 # Input key -> label shown to the user when the value is missing
 REQUIRED_INPUTS = {
@@ -68,7 +69,9 @@ def build_pipe(pipe_data: dict) -> models.Pipe:
         outside_diameter=_value(pipe_data, 'Pipe Outer Diameter'),
         wall_thickness=_value(pipe_data, 'Pipe Wall Thickness'),
         smts=_value(pipe_data, 'SMTS'),
-        design_pressure=_value(pipe_data, 'Design Pressure'),
+        # The interface may quote the design pressure in bar, MPa or psi
+        design_pressure=to_bar(_value(pipe_data, 'Design Pressure'),
+                               _unit_of(pipe_data, 'Design Pressure', 'bar')),
         design_temperature=_value(pipe_data, 'Design Temperature'),
         incidental_to_design_pressure_ratio=_value(pipe_data, 'Incidental to Design Pressure Ratio'),
         accuracy=_value(pipe_data, 'Accuracy'),

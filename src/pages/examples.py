@@ -8,6 +8,7 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.layout import build_evaluation_alert
+from src.utils.units import format_pressure
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
 from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot,
                                            generate_defect_cross_section_plot)
@@ -136,10 +137,12 @@ def example_a_1_3():
     Output('example_evaluation', 'children'),
     Input('example-selector', 'value'),
     Input('theme-store', 'data'),
+    Input('pressure-unit', 'value'),
 )
-def update_graph(example_selected, theme):
+def update_graph(example_selected, theme, pressure_unit):
     start_time = time.time()
     theme = theme or 'dark'
+    pressure_unit = pressure_unit or 'bar'
 
     if example_selected == 'Example A.1-1':
         pipe = example_a_1_1()
@@ -181,8 +184,12 @@ def update_graph(example_selected, theme):
             dbc.CardHeader("Environment"),
             dbc.CardBody([
                 html.P(f"Elevation: {pipe.environment.elevation} m", className="mb-1"),
-                html.P(f"External Pressure: {pipe.environment.external_pressure:.2f} MPa", className="mb-1"),
-                html.P(f"Incidental Pressure: {pipe.environment.incidental_pressure:.2f} MPa", className="mb-0"),
+                html.P(f"External Pressure: "
+                       f"{format_pressure(pipe.environment.external_pressure, pressure_unit)}",
+                       className="mb-1"),
+                html.P(f"Incidental Pressure: "
+                       f"{format_pressure(pipe.environment.incidental_pressure, pressure_unit)}",
+                       className="mb-0"),
             ]),
         ]),
     ]
@@ -196,8 +203,12 @@ def update_graph(example_selected, theme):
     cards.append(dbc.Card([
         dbc.CardHeader("Results"),
         dbc.CardBody([
-            html.P(f"Effective Pressure: {pipe.properties.effective_pressure:.2f} MPa", className="mb-1"),
-            html.P(f"Pressure Resistance: {pipe.properties.pressure_resistance:.2f} MPa", className="mb-0"),
+            html.P(f"Effective Pressure: "
+                   f"{format_pressure(pipe.properties.effective_pressure, pressure_unit)}",
+                   className="mb-1"),
+            html.P(f"Pressure Resistance: "
+                   f"{format_pressure(pipe.properties.pressure_resistance, pressure_unit)}",
+                   className="mb-0"),
         ]),
     ]))
 
@@ -206,6 +217,7 @@ def update_graph(example_selected, theme):
         className="mb-3"
     )
 
-    evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
+    evaluation = build_evaluation_alert(pipe.properties.effective_pressure,
+                                        pipe.properties.pressure_resistance, pressure_unit)
     logger.info(f"Loaded {example_selected} | Time elapsed: {time.time() - start_time:.2f}s")
     return fig_defect_assessment, fig_pipe_cross_section, fig_defect_cross_section, description, evaluation

@@ -12,7 +12,7 @@ from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
 from src.utils.assessment import build_pipe
 from src.utils.report import build_report, filename, render_markdown
-from src.utils.layout import center_align_style, build_evaluation_alert
+from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
 
 dash.register_page(__name__)
 
@@ -57,7 +57,8 @@ def layout():
 
         dbc.AccordionItem([
             _input_row('Elevation', 'input-defect-elevation', -100, 'm'),
-            _input_row('Design Pressure', 'input-design-pressure', 150, 'bar'),
+            _input_row('Design Pressure', 'input-design-pressure', 150, 'bar',
+                       unit_id='unit-design-pressure'),
             _input_row('Design Temperature', 'input-design-temp', 75, '°C'),
             _input_row('Incidental/Design Ratio', 'input-incidental-ratio', 1.1, ''),
             _input_row('Seawater Density', 'input-seawater-density', 1025, 'kg/m³'),
@@ -308,6 +309,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     State('single_defect_date_range', 'start_date'),
     State('single_defect_date_range', 'end_date'),
     Input('theme-store', 'data'),
+    Input('pressure-unit', 'value'),
 )
 def calculate_pipe_characteristics(
         n_clicks,
@@ -321,7 +323,7 @@ def calculate_pipe_characteristics(
         axial_stress, bending_stress, combined_stress,
         sec_length, sec_width, sec_depth, sec_depth_unit, sec_separation,
         start_date, end_date,
-        theme,
+        theme, pressure_unit,
 ):
     start_time = time.time()
 
@@ -333,7 +335,7 @@ def calculate_pipe_characteristics(
         'Defect Width': {'Value': defect_width, 'Unit': 'mm'},
         'Defect Depth': {'Value': defect_depth, 'Unit': defect_depth_unit},
         'Defect Elevation': {'Value': defect_elevation, 'Unit': 'm'},
-        'Design Pressure': {'Value': design_pressure, 'Unit': 'bar'},
+        'Design Pressure': {'Value': design_pressure, 'Unit': pressure_unit},
         'Design Temperature': {'Value': design_temp, 'Unit': '°C'},
         'Incidental to Design Pressure Ratio': {'Value': incidental_ratio, 'Unit': ''},
         'Accuracy': {'Value': accuracy, 'Unit': ''},
@@ -355,6 +357,7 @@ def calculate_pipe_characteristics(
     }
 
     theme = theme or 'dark'
+    pressure_unit = pressure_unit or 'bar'
     error_encountered = False
     error = ''
     fig1 = fig2 = fig3 = analysis = evaluation = report = no_update
@@ -367,26 +370,13 @@ def calculate_pipe_characteristics(
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe, theme=theme)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe, theme=theme)
 
-        result_items = [
-            dbc.ListGroupItem([html.Strong("Effective Pressure: "),
-                               f"{pipe.properties.effective_pressure:.2f} MPa"]),
-            dbc.ListGroupItem([html.Strong("Pressure Resistance: "),
-                               f"{pipe.properties.pressure_resistance:.2f} MPa"]),
-        ]
-        if any(d.position for d in pipe.defects):
-            interaction_text = ("Defect interaction found" if pipe.combined_defect is not None
-                                else "No defect interaction found")
-            result_items.append(dbc.ListGroupItem([html.Strong("Interaction: "), interaction_text]))
-        if pipe.properties.remaining_life is not None:
-            result_items.append(dbc.ListGroupItem(
-                [html.Strong("Remaining Life: "), f"{pipe.properties.remaining_life:.0f} days"]
-            ))
         analysis = dbc.Card([
             dbc.CardHeader("Results"),
-            dbc.ListGroup(result_items, flush=True),
+            dbc.ListGroup(build_result_items(pipe, pressure_unit), flush=True),
         ], className="mt-3 mb-3")
 
-        evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
+        evaluation = build_evaluation_alert(pipe.properties.effective_pressure,
+                                            pipe.properties.pressure_resistance, pressure_unit)
         report = build_report(pipe)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
@@ -497,6 +487,14 @@ def download_json(n_clicks, report):
     if not n_clicks or not report:
         return no_update
     return dcc.send_string(json.dumps(report, indent=2), filename(report, 'json'))
+
+
+@callback(
+    Output('unit-design-pressure', 'children'),
+    Input('pressure-unit', 'value'),
+)
+def update_pressure_unit_label(unit: str):
+    return unit or 'bar'
 
 
 @callback(
