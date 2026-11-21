@@ -29,7 +29,7 @@ The application can be accessed [here](https://corrosion-analyser.onrender.com/)
 
 ### Local Development
 1. Clone the repository and navigate to the project directory
-2. Install Python (>=3.10, <3.12)
+2. Install Python (>=3.10, <3.15)
 3. Install [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer)
 4. Install the dependencies using `poetry install`
 5. Run the application using `poetry run python -m src.app`

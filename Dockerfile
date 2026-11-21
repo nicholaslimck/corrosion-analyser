@@ -20,7 +20,8 @@ FROM python:3.11-slim AS runtime
 RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 
 ENV VIRTUAL_ENV=/app/.venv \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 

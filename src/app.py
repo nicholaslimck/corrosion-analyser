@@ -106,4 +106,4 @@ if __name__ == '__main__':
         serve(app.server, host="0.0.0.0", port=8050)
     else:
         logger.info('Starting development server')
-        app.run_server(debug=True)
+        app.run(debug=True)
