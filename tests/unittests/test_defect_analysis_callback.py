@@ -11,7 +11,8 @@ import pytest
 
 import src.app  # noqa: F401 - instantiates the Dash app so page callbacks can register
 from src.pages.defect_analysis import (
-    calculate_pipe_characteristics, download_json, download_markdown, update_input_units)
+    build_calculation_trace, calculate_pipe_characteristics, download_json, download_markdown,
+    update_calculation_trace, update_input_units)
 from tests.unittests.test_assessment import _input, pipe_data
 
 
@@ -104,3 +105,34 @@ class TestUnitCallback:
     ])
     def test_depth_and_accuracy_units_are_independent(self, depth_unit, accuracy_type, expected):
         assert update_input_units(depth_unit, accuracy_type) == expected
+
+
+class TestCalculationTrace:
+    def test_trace_lists_the_factors_with_their_clauses(self):
+        report = calculate_pipe_characteristics(*callback_args(pipe_data()))[-1]
+        trace = build_calculation_trace(report)
+
+        assert len(trace.children) == 2
+        rendered = str(trace)
+        # the factors actually used, not just their names
+        assert f"{report['assessment']['gamma_d']:.4f}" in rendered
+        assert f"{report['results']['pressure_resistance_mpa']:.3f}" in rendered
+        # each with the clause it comes from
+        for clause in ('Table 3-2', 'Tables 3-7, 3-8', 'Table 3-10', 'Tables 3-3 to 3-6', '§3.7.3.1'):
+            assert clause in rendered
+
+    def test_trace_includes_each_defect(self):
+        report = calculate_pipe_characteristics(*callback_args(pipe_data(**{
+            'Secondary Defect Length': _input(150, 'mm'),
+            'Secondary Defect Width': _input(50, 'mm'),
+            'Secondary Defect Depth': _input(0.30, 't'),
+            'Secondary Defect Separation': _input(100, 'mm'),
+        })))[-1]
+        rendered = str(build_calculation_trace(report))
+        assert 'Defect 1 (measured)' in rendered
+        assert 'Defect 2 (measured)' in rendered
+        assert 'Defect 3 (combined)' in rendered
+
+    def test_trace_before_an_analysis_prompts_the_user(self):
+        trace = update_calculation_trace(None)
+        assert 'Run an analysis' in str(trace)

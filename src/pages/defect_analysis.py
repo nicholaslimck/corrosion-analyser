@@ -211,6 +211,10 @@ def layout():
                 justify='center'
             ),
             dbc.Row(
+                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=8),
+                justify='center'
+            ),
+            dbc.Row(
                 dbc.Col(
                     html.Div([
                         dbc.Button('Print / Save as PDF', id='print-button', color='secondary',
@@ -395,6 +399,80 @@ def calculate_pipe_characteristics(
         error = "An unexpected error occurred. Please check your inputs and try again."
 
     return fig1, fig2, fig3, analysis, evaluation, error_encountered, error, report
+
+
+def _trace_table(rows):
+    return dbc.Table([
+        html.Thead(html.Tr([html.Th('Quantity'), html.Th('Value'), html.Th('Source')])),
+        html.Tbody([
+            html.Tr([html.Td(quantity), html.Td(value), html.Td(source, className='text-muted')])
+            for quantity, value, source in rows
+        ]),
+    ], bordered=False, striped=True, size='sm', className='mb-0')
+
+
+def build_calculation_trace(report):
+    """
+    The intermediate values behind a verdict, each with the clause it comes from.
+
+    The assessment is only as trustworthy as the numbers going into it, so they are
+    shown rather than left implicit: a reader can reproduce the result by hand.
+    """
+    if not report:
+        return html.P('Run an analysis to see the calculation trace.',
+                      className='text-muted small mb-0 mt-2')
+
+    pipe_ = report['pipe']
+    material = report['material']
+    design = report['design']
+    assessment = report['assessment']
+    environment = report['environment']
+    results = report['results']
+
+    inputs = [
+        ('Outside diameter, D', f"{pipe_['outside_diameter_mm']:.1f} mm", '§2.1'),
+        ('Wall thickness, t', f"{pipe_['wall_thickness_mm']:.2f} mm", '§2.1'),
+        ('SMTS', f"{material['smts_mpa']:.1f} N/mm²", '§2.6'),
+        ('Design temperature', f"{material['design_temperature_c']:.0f} °C", 'Figure 2-3'),
+        ('Design pressure, p_d', f"{design['design_pressure_bar']:.1f} bar", '§1.13'),
+        ('Incidental/design ratio, γinc', f"{design['incidental_to_design_ratio']:.2f}", '§3.7.2.2'),
+        ('De-rating, f_u,temp', f"{material['de_rating_mpa']:.1f} N/mm²", 'Figure 2-3'),
+        ('Tensile strength, f_u', f"{material['f_u_mpa']:.2f} N/mm²", 'Table 2-1'),
+        ('Sizing accuracy, StD[d/t]', f"{assessment['standard_deviation']:.4f}",
+         'Tables 3-3 to 3-6'),
+        ('Partial safety factor, γm', f"{assessment['gamma_m']:.2f}", 'Table 3-2'),
+        ('Partial safety factor, γd', f"{assessment['gamma_d']:.4f}", 'Tables 3-7, 3-8'),
+        ('Fractile value, εd', f"{assessment['epsilon_d']:.4f}", 'Tables 3-7, 3-8'),
+        ('Usage factor, ξ', f"{assessment['xi']:.2f}", 'Table 3-10'),
+        ('Incidental pressure, p_inc', f"{environment['incidental_pressure_mpa']:.3f} MPa",
+         '§3.7.2.2'),
+        ('External pressure, p_le', f"{environment['external_pressure_mpa']:.3f} MPa", '§3.7.2.2'),
+        ('Effective pressure, p_li − p_le', f"{results['effective_pressure_mpa']:.3f} MPa",
+         '§3.7.2.2'),
+        ('Pressure resistance, p_corr', f"{results['pressure_resistance_mpa']:.3f} MPa", '§3.7.3.1'),
+    ]
+    defects = [
+        (f"Defect {index} ({'combined' if defect['combined'] else 'measured'})",
+         f"l = {defect['length_mm']:.1f} mm, d/t = {defect['relative_depth']:.4f}, "
+         f"(d/t)* = {defect['adjusted_relative_depth']:.4f}, "
+         f"Q = {defect['length_correction_factor']:.4f}, "
+         f"p_corr = {defect['pressure_resistance_mpa']:.3f} MPa",
+         '§3.7.3.1, §3.8.2')
+        for index, defect in enumerate(report['defects'], start=1)
+    ]
+
+    return dbc.Accordion([
+        dbc.AccordionItem(_trace_table(inputs), title='Inputs and partial safety factors'),
+        dbc.AccordionItem(_trace_table(defects), title='Defect geometry and capacity'),
+    ], start_collapsed=True, className='mt-3 small text-start')
+
+
+@callback(
+    Output('calculation-trace', 'children'),
+    Input('report-store', 'data'),
+)
+def update_calculation_trace(report):
+    return build_calculation_trace(report)
 
 
 @callback(
