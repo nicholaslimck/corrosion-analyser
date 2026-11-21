@@ -142,3 +142,25 @@ def test_pressure_resistance_never_negative_for_extreme_depth():
         f_u=495.26,
     )
     assert p_corr >= 0.0
+
+
+def test_compressive_resistance_zero_when_area_ratio_not_positive():
+    """A defect wider than it is long drives a_r to zero; 3.7.4 is not valid there."""
+    # theta = 5000 / (pi * 812.8) = 1.96, so a_r = 1 - 0.62 * 1.96 < 0
+    p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+        gamma_m=0.85, gamma_d=1.28, t_nominal=19.1, d_nominal=812.8,
+        defect_length=200, defect_width=5000,
+        defect_relative_depth_measured=0.62,
+        relative_defect_depth_with_uncertainty=0.62 + 1.0 * 0.08,
+        f_u=495.264, sigma_l=-200.0, phi=0.85)
+    assert p_corr_comp == 0.0
+
+
+def test_compressive_resistance_requires_width():
+    with pytest.raises(ValueError, match='Defect width is required'):
+        calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+            gamma_m=0.85, gamma_d=1.28, t_nominal=19.1, d_nominal=812.8,
+            defect_length=200, defect_width=None,
+            defect_relative_depth_measured=0.25,
+            relative_defect_depth_with_uncertainty=0.25 + 1.0 * 0.08,
+            f_u=495.264, sigma_l=-200.0, phi=0.85)

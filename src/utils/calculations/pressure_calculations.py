@@ -117,8 +117,18 @@ def calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
     p_corr = calculate_pressure_resistance_longitudinal_defect(
         gamma_m=gamma_m, gamma_d=gamma_d, t_nominal=t_nominal, defect_length=defect_length, d_nominal=d_nominal,
         relative_defect_depth_with_uncertainty=relative_defect_depth_with_uncertainty, f_u=f_u, q=q)
+    if defect_width is None:
+        raise ValueError('Defect width is required for the compressive stress assessment')
+
     theta = calculate_circumferential_corroded_length_ratio(defect_width, d_nominal)
     a_r = 1 - defect_relative_depth_measured * theta
+    if a_r <= 0:
+        # DNVGL-RP-F101 Section 3.7.4 is not valid where the defect breadth exceeds its
+        # length, which drives the area ratio to zero or below. Report no capacity rather
+        # than dividing by zero or returning a negative resistance.
+        logger.warning(f'Area ratio {a_r:.4f} is not positive; 3.7.4 is not valid for this '
+                       f'defect geometry, pressure resistance taken as zero')
+        return 0.0
     # h1 cannot be greater than 1
     h1 = (1 + (sigma_l / (phi * f_u)) * (1 / a_r)) / (1 - (gamma_m / (2 * phi * a_r)) *
                                                       ((1 - gamma_d * relative_defect_depth_with_uncertainty) /
