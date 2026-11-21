@@ -85,8 +85,8 @@ Implemented against DNVGL-RP-F101 *Corroded pipelines* (Edition September 2019):
 | §2.9.2 | Corrosion rate and remaining life estimation |
 
 The test suite pins the implementation to the standard where the standard publishes
-numbers: the calibrated values of Tables 3-4 to 3-7 and the worked examples of
-Appendix A (Example A.1).
+numbers: the calibrated values of Tables 3-4 to 3-7, the maximum acceptable depths of
+Table 3-11, and the worked examples of Appendix A (Example A.1).
 
 ## Known limitations
 

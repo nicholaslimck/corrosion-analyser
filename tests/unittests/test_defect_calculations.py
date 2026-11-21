@@ -14,6 +14,7 @@ from src.utils.calculations.pressure_calculations import (
     calculate_pressure_resistance_longitudinal_defect,
     calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.models.defect import Defect
+from src.utils.models.factors import Factors
 
 
 def test_calc_length_correction_factor(example_a_1, snapshot):
@@ -198,3 +199,32 @@ def test_maximum_defect_depth_not_capped_below_85_percent():
     # 1 / 1.28 - 1.0 * 0.08 = 0.70125, below the cap
     assert calculate_maximum_defect_depth(
         gamma_d=1.28, epsilon_d=1.0, std_dev=0.08) == pytest.approx(0.70125)
+
+
+# DNVGL-RP-F101 Table 3-11 (p.40): maximum acceptable measured depth, selected examples.
+# The first row carries the footnote "limited to maximum 0.85 t, see [3.7.2.1]".
+TABLE_3_11 = [
+    # (safety_class, relative accuracy, confidence, max acceptable measured depth [t])
+    ('medium', 0.05, 0.8, 0.85),
+    ('medium', 0.10, 0.8, 0.70),
+    ('high', 0.10, 0.8, 0.68),
+    ('medium', 0.20, 0.8, 0.41),
+]
+
+
+@pytest.mark.parametrize('safety_class,accuracy,confidence,expected', TABLE_3_11)
+def test_maximum_acceptable_depth_matches_table_3_11(safety_class, accuracy, confidence, expected):
+    """The 3.7.3.3 expression, capped at the 3.7.2.1 limit, reproduces Table 3-11.
+
+    Table 3-11 is quoted to two decimals, so the tolerance absorbs rounding.
+    """
+    factors = Factors(
+        safety_class=safety_class,
+        inspection_method='relative',
+        measurement_accuracy=accuracy,
+        confidence_level=confidence,
+        wall_thickness=19.1,
+    )
+    result = calculate_maximum_defect_depth(
+        gamma_d=factors.gamma_d, epsilon_d=factors.epsilon_d, std_dev=factors.standard_deviation)
+    assert result == pytest.approx(expected, abs=0.012)
