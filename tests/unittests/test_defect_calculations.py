@@ -9,7 +9,8 @@ from src.utils.calculations.defect_calculations import (calculate_length_correct
                                                         calculate_combined_depth,
                                                         verify_interaction,
                                                         calculate_maximum_defect_depth,
-                                                        calculate_maximum_defect_length)
+                                                        calculate_maximum_defect_length,
+                                                        MAX_MEASURED_RELATIVE_DEPTH)
 from src.utils.calculations.pressure_calculations import (
     calculate_pressure_resistance_longitudinal_defect,
     calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
@@ -228,3 +229,37 @@ def test_maximum_acceptable_depth_matches_table_3_11(safety_class, accuracy, con
     result = calculate_maximum_defect_depth(
         gamma_d=factors.gamma_d, epsilon_d=factors.epsilon_d, std_dev=factors.standard_deviation)
     assert result == pytest.approx(expected, abs=0.012)
+
+
+_WITH_STRESS = dict(
+    gamma_m=0.85, gamma_d=1.28, pipe_diameter=812.8, pipe_thickness=19.1,
+    defect_length=200, defect_width=50, f_u=509.66, xi=0.85, epsilon_d=1.0, st_dev=0.078,
+)
+
+
+@pytest.mark.parametrize('sigma_l', [-50.0, -100.0, -200.0, -300.0])
+@pytest.mark.parametrize('target', [5.0, 10.0, 15.0, 20.0])
+def test_max_defect_depth_with_stress_round_trip(sigma_l, target):
+    """The inverted depth must reproduce the target resistance in the forward equation.
+
+    The previous symbolic inverse failed this in 11 of 20 sampled cases, always
+    returning a depth deeper than the true root (non-conservative).
+    """
+    max_depth = calculate_max_defect_depth_longitudinal_with_stress(
+        **_WITH_STRESS, p_corr_comp=target, sigma_l=sigma_l)
+
+    assert 0.0 <= max_depth <= MAX_MEASURED_RELATIVE_DEPTH
+
+    recovered = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+        gamma_m=_WITH_STRESS['gamma_m'], gamma_d=_WITH_STRESS['gamma_d'],
+        t_nominal=_WITH_STRESS['pipe_thickness'], d_nominal=_WITH_STRESS['pipe_diameter'],
+        defect_length=_WITH_STRESS['defect_length'], defect_width=_WITH_STRESS['defect_width'],
+        defect_relative_depth_measured=max_depth,
+        relative_defect_depth_with_uncertainty=max_depth + _WITH_STRESS['st_dev'],
+        f_u=_WITH_STRESS['f_u'], sigma_l=sigma_l, phi=_WITH_STRESS['xi'])
+
+    if max_depth > 0:
+        assert recovered == pytest.approx(target, abs=1e-3)
+    else:
+        # No depth is acceptable: even the uncorroded pipe misses the target pressure
+        assert recovered < target
