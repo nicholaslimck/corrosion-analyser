@@ -53,18 +53,6 @@ files = [
 ]
 
 [[package]]
-name = "cachelib"
-version = "0.13.0"
-description = "A collection of cache libraries in the same API interface."
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "cachelib-0.13.0-py3-none-any.whl", hash = "sha256:8c8019e53b6302967d4e8329a504acf75e7bc46130291d30188a6e4e58162516"},
-    {file = "cachelib-0.13.0.tar.gz", hash = "sha256:209d8996e3c57595bee274ff97116d1d73c4980b2fd9a34c7846cd07fd2e1a48"},
-]
-
-[[package]]
 name = "celery"
 version = "5.6.3"
 description = "Distributed Task Queue."
@@ -658,22 +646,6 @@ Werkzeug = ">=3.0.0"
 [package.extras]
 async = ["asgiref (>=3.2)"]
 dotenv = ["python-dotenv"]
-
-[[package]]
-name = "flask-caching"
-version = "2.4.0"
-description = "Adds caching support to Flask applications."
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "flask_caching-2.4.0-py3-none-any.whl", hash = "sha256:d15b8135f055c4f28f6f7dbcf8d36a3de4af1224def975ae6e0b43cbfa684486"},
-    {file = "flask_caching-2.4.0.tar.gz", hash = "sha256:a7f14e43617cd0612a57bec2f80516d6d2ec888bfc50a807b1e4e41ca345a3b5"},
-]
-
-[package.dependencies]
-cachelib = ">=0.9.0"
-flask = ">=2.0"
 
 [[package]]
 name = "hypothesis"
@@ -2013,4 +1985,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.15"
-content-hash = "dedc9ba3df9ee6f876950ff15ef3e1ad735e08efa5b22e3ccd7b265ce3a5fc19"
+content-hash = "ed89c2eb55f0ab3fee91eb1c95a610d7410c6d2fe126bff0219b7e69bab17dee"

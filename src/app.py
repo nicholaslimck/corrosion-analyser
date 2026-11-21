@@ -5,7 +5,6 @@ from uuid import uuid4
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, State
-from flask_caching import Cache
 from loguru import logger
 
 from src.utils import IS_DOCKER
@@ -37,17 +36,6 @@ app = dash.Dash(
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1, maximum-scale=1"}],
     background_callback_manager=background_callback_manager
 )
-
-if 'REDIS_URL' in environ:
-    cache = Cache(app.server, config={
-        'CACHE_TYPE': 'redis',
-        'CACHE_REDIS_URL': environ.get('REDIS_URL', '')
-    })
-else:
-    cache = Cache(app.server, config={
-        'CACHE_TYPE': 'filesystem',
-        'CACHE_DIR': '/tmp/corrosion-analyser-flask-cache'
-    })
 
 _NAVBAR_COLOR_DARK = '#1e293b'
 _NAVBAR_COLOR_LIGHT = '#f8fafc'

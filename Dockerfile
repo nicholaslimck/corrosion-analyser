@@ -28,8 +28,8 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 COPY src ./src
 
-RUN mkdir -p /tmp/corrosion-analyser-cache /tmp/corrosion-analyser-flask-cache \
-    && chown -R appuser:appuser /app /tmp/corrosion-analyser-cache /tmp/corrosion-analyser-flask-cache
+RUN mkdir -p /tmp/corrosion-analyser-cache \
+    && chown -R appuser:appuser /app /tmp/corrosion-analyser-cache
 
 USER appuser
 ENV DOCKER=true
