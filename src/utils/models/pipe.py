@@ -1,9 +1,9 @@
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 from loguru import logger
+from scipy.optimize import brentq
 
 from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal_with_stress,
                                                         calculate_maximum_defect_length, verify_interaction)
@@ -335,17 +335,19 @@ class Pipe:
 
     def estimate_remaining_life(self):
         """
-        Estimate the remaining life of the pipe based on the current defect and loading based on 2.9.2
+        Estimate the remaining life of the pipe based on the current defect and loading as per 2.9.2
 
-        d_t: defect depth after time T
-        l_t: defect length after time T
-        T: time
-        r_corr: corrosion rate
-        r_corr_length: corrosion rate for length
-        d_0: initial defect depth
-        l_0: initial defect length
+        The defect grows from the latest inspection as
+            d_T = d_0 + r_corr * T
+            l_T = l_0 + r_corr_length * T
+        and fails the first time its depth reaches the maximum allowable depth for its
+        length, read from the calculated allowable depth curve. The crossing time is
+        found by root finding, so any corrosion rate is handled and the result is
+        continuous in days.
+
         Returns:
-
+            remaining_life: days until the defect reaches the allowable limit, 0 if the
+                pipe has already failed, or None if no failure is predicted
         """
         if len(self.defects) < 2:
             raise ValueError("Two defect measurements required to estimate remaining life")
@@ -353,53 +355,51 @@ class Pipe:
         if self.properties.pressure_resistance < self.properties.effective_pressure:
             logger.info('Pipe has already failed, skipping remaining life calculation')
             self.properties.remaining_life = 0
-            return False
+            return 0
+
+        if not self.properties.maximum_allowable_defect_depth:
+            raise ValueError("Maximum allowable defect depth must be calculated before remaining life")
 
         d_0 = self.defects[1].relative_depth
         l_0 = self.defects[1].length
-        w_0 = self.defects[1].width
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
         if r_corr <= 0:
             logger.info('Non-positive corrosion rate, pipe will not fail')
             self.properties.remaining_life = None
-            return
+            return None
 
-        # Find the point where the defect depth and length reach the maximum allowable defect depth/length
-        d_t = d_0
-        l_t = l_0
-        w_t = w_0  # noqa: F841
-        failure = False
-        max_iterations = 1_000_000
-        iteration = 0
-        maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
-        filtered_allowable_depth = maximum_allowable_defect_depth[
-            (maximum_allowable_defect_depth['defect_length'] > l_t) &
-            (maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
-        ]
+        limits = self.properties.maximum_allowable_defect_depth[0].sort_values('defect_length')
+        lengths = limits['defect_length'].to_numpy(dtype=float)
+        depths = limits['defect_relative_depth'].to_numpy(dtype=float)
 
-        while not failure:
-            d_t += r_corr
-            l_t += r_corr_length
-            iteration += 1
+        def depth_margin(time_days):
+            # Positive once the growing defect is deeper than the allowable depth at its length
+            allowable = np.interp(l_0 + r_corr_length * time_days, lengths, depths)
+            return (d_0 + r_corr * time_days) - allowable
 
-            if iteration >= max_iterations:
-                logger.warning('Remaining life iteration limit reached without failure condition')
-                self.properties.remaining_life = None
-                return
+        if depth_margin(0.0) >= 0:
+            logger.info('Defect is already at or beyond the allowable depth')
+            self.properties.remaining_life = 0
+            return 0
 
-            for row in filtered_allowable_depth.itertuples():
-                if math.isclose(l_t, row.defect_length, abs_tol=0.5):
-                    if d_t >= row.defect_relative_depth:
-                        failure = True
-                        break
-                    else:
-                        break
+        # The defect cannot remain acceptable beyond the end of the allowable depth curve
+        if r_corr_length > 0:
+            time_limit = (lengths[-1] - l_0) / r_corr_length
+        else:
+            time_limit = (depths[0] - d_0) / r_corr
+        time_limit = max(float(time_limit), 0.0)
 
-        remaining_life = (d_t - d_0) / r_corr
+        if time_limit <= 0 or depth_margin(time_limit) < 0:
+            logger.info('No failure predicted within the calculated allowable limits')
+            self.properties.remaining_life = None
+            return None
+
+        remaining_life = float(brentq(depth_margin, 0.0, time_limit))
 
         self.properties.remaining_life = remaining_life
+        return remaining_life
 
     def calculate_corrosion_rate(self) -> tuple[float, float]:
         """
