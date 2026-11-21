@@ -18,7 +18,7 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
         },
         range_y=[0, 1.0])
 
-    max_defect_length = max(defect.length for defect in pipe.defects)
+    max_defect_length = max(defect.length for defect in pipe.assessment_defects)
     x_max = max(max_defect_length * 2, 500)
     fig.update_xaxes(range=[0, x_max])
 
@@ -47,7 +47,7 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
                             text='pressure_resistance', color_discrete_sequence=[colour])
         fig.add_trace(marker.data[0])
 
-    for defect in pipe.defects:
+    for defect in pipe.assessment_defects:
         add_marker(defect)
 
     fig.update_traces(textposition='top center')

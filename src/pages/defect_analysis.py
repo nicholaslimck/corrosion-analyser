@@ -416,7 +416,7 @@ def calculate_pipe_characteristics(
                                f"{pipe.properties.pressure_resistance:.2f} MPa"]),
         ]
         if any(d.position for d in pipe.defects):
-            interaction_text = ("Defect interaction found" if len(pipe.defects) == 3
+            interaction_text = ("Defect interaction found" if pipe.combined_defect is not None
                                 else "No defect interaction found")
             result_items.append(dbc.ListGroupItem([html.Strong("Interaction: "), interaction_text]))
         if pipe.properties.remaining_life is not None:

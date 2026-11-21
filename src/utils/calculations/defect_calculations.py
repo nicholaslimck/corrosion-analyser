@@ -301,10 +301,10 @@ def verify_interaction(defects: list, pipe_diameter, pipe_thickness):
     Returns:
         True if the defects should be combined into a single defect
     """
-    if len(defects) > 2:
-        logger.warning(
-            f'{len(defects)} defects supplied, but interaction is only assessed between the '
-            f'first two - see Known limitations in the README'
+    if len(defects) != 2:
+        raise ValueError(
+            f'Interaction is assessed between exactly two defects; {len(defects)} were '
+            f'supplied - see Known limitations in the README'
         )
     separation = defects[1].position - defects[0].position
     # DNVGL-RP-F101 Section 3.8.2 Step 1: minimum length of a sectioned assessment

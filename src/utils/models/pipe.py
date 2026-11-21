@@ -92,6 +92,7 @@ class Pipe:
     def __init__(self, config: PipeConfig):
         self.defect = None
         self.defects = []
+        self.combined_defect = None
         self.environment = None
         self.loading = None
         self.properties = Properties()
@@ -125,16 +126,33 @@ class Pipe:
 
     def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
+        self._prepare_defect(defect)
+        if not self.defects:
+            self.defect = defect
+        self.defects.append(defect)
+
+    def _prepare_defect(self, defect: Defect) -> Defect:
+        """Attach factors and derive the dimensions needed by the assessment equations."""
         if not defect.factors:
             defect.factors = self.factors
         defect.complete_dimensions()
         defect.calculate_d_t_adjusted()
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
+        return defect
 
-        if not self.defects:
-            self.defect = defect
-        self.defects.append(defect)
+    @property
+    def assessment_defects(self) -> list:
+        """
+        Defects included in the assessment: the measured defects, plus the combined
+        defect when the measured defects interact.
+
+        The combined defect is a derived result, not an input, so it is kept out of
+        `defects` and exposed here instead.
+        """
+        if self.combined_defect is None:
+            return list(self.defects)
+        return [*self.defects, self.combined_defect]
 
     def add_loading(self, axial_load: float = None, bending_load: float = None, combined_stress: float = None):
         if (axial_load or bending_load) and not combined_stress:
@@ -158,11 +176,18 @@ class Pipe:
         self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def analyze(self):
-        """Run all calculations in the required order."""
+        """Run all calculations in the required order.
+
+        Idempotent: derived state from a previous run is discarded first, so calling
+        analyze() again produces the same result rather than accumulating results.
+        """
         if not self.defects:
             raise ValueError("At least one defect must be added before analysis")
         if not self.environment:
             raise ValueError("Environment must be set before analysis")
+
+        self.properties = Properties()
+        self.combined_defect = None
 
         self.calculate_pressure_resistance()
         self.calculate_effective_pressure()
@@ -174,6 +199,8 @@ class Pipe:
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
 
+        self.combined_defect = None
+
         # Interacting Defects
         if any(defect.position for defect in self.defects):
             logger.info('Defect separation detected, checking for interaction')
@@ -183,10 +210,12 @@ class Pipe:
                     pipe_thickness=self.dimensions.wall_thickness
             ):
                 logger.info('Defects are interacting, adding combined defect')
-                combined_defect = Defect(defects=self.defects)
-                self.add_defect(combined_defect)
+                # The combined defect is a derived result; it is kept out of self.defects
+                # so that re-running the calculation cannot append it twice.
+                self.combined_defect = self._prepare_defect(Defect(defects=self.defects))
 
-        for defect in self.defects:
+        defects = self.assessment_defects
+        for defect in defects:
             if not self.loading:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
                     gamma_m=defect.factors.gamma_m,
@@ -219,7 +248,7 @@ class Pipe:
                 logger.info(f'Pressure Resistance: {p_corr_comp}')
                 defect.pressure_resistance = p_corr_comp
 
-        self.properties.pressure_resistance = min(defect.pressure_resistance for defect in self.defects)
+        self.properties.pressure_resistance = min(defect.pressure_resistance for defect in defects)
 
     def calculate_effective_pressure(self):
         logger.info("Calculating effective pressure")
@@ -233,13 +262,13 @@ class Pipe:
         """
         logger.info("Calculating limits for defect depth and length")
 
-        defects = self.defects.copy()
+        self.properties.maximum_allowable_defect_depth = []
 
-        # The allowable depth limits are only computed for the governing defect. With a
-        # third defect (the combined defect appended by calculate_pressure_resistance)
-        # the second entry is the combined defect, which is what the second curve shows.
-        if len(self.defects) > 1:
-            del defects[1]
+        # A curve is produced for the governing measured defect, and a second one for
+        # the combined defect when the measured defects interact.
+        defects = [self.defects[0]]
+        if self.combined_defect is not None:
+            defects.append(self.combined_defect)
 
         for index, defect in enumerate(defects):
             rows = []

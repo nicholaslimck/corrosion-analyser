@@ -504,8 +504,39 @@ class TestPipe:
         pipe.add_defect(d1)
         pipe.add_defect(d2)
         pipe.calculate_pressure_resistance()
-        assert len(pipe.defects) == 3  # d1, d2, combined
+        # The combined defect is derived, not measured: it stays out of pipe.defects
+        assert len(pipe.defects) == 2
+        assert pipe.combined_defect is not None
+        assert len(pipe.assessment_defects) == 3
         assert pipe.properties.pressure_resistance > 0
+
+    def test_calculate_pressure_resistance_is_repeatable(self, valid_config):
+        """Re-running the calculation must not accumulate derived defects."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=100, relative_depth=0.25, position=0))
+        pipe.add_defect(Defect(length=100, relative_depth=0.30, position=50))
+        pipe.calculate_pressure_resistance()
+        first = pipe.properties.pressure_resistance
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_pressure_resistance()
+        assert len(pipe.defects) == 2
+        assert len(pipe.assessment_defects) == 3
+        assert pipe.properties.pressure_resistance == pytest.approx(first)
+
+    def test_analyze_is_idempotent(self, valid_config):
+        """analyze() must reset derived state rather than append to it."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.analyze()
+        first = pipe.properties.pressure_resistance
+        pipe.analyze()
+        pipe.analyze()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+        assert pipe.properties.pressure_resistance == pytest.approx(first)
 
     def test_calculate_maximum_allowable_defect_depth_ignores_second_defect(self, valid_config):
         pipe = Pipe(config=valid_config)

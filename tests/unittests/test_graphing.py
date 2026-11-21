@@ -61,7 +61,7 @@ def interacting_pipe():
     # separation + lengths = 50 + 200 = 250 < 623 → interacting
     pipe.add_defect(Defect(length=100, relative_depth=0.25, position=0))
     pipe.add_defect(Defect(length=100, relative_depth=0.30, position=50))
-    pipe.calculate_pressure_resistance()   # adds combined_defect → 3 defects
+    pipe.calculate_pressure_resistance()   # sets combined_defect → 3 assessment defects
     pipe.calculate_effective_pressure()
     pipe.calculate_maximum_allowable_defect_depth()  # [d1, combined] → 2 DataFrames
     return pipe
