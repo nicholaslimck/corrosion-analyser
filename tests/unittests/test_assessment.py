@@ -130,6 +130,37 @@ class TestBuildPipe:
         assert pipe.defects[1].measurement_timestamp == pytest.approx(expected)
 
 
+class TestMeasurementOrdering:
+    def test_defects_are_ordered_by_timestamp(self):
+        """The form may supply the later inspection first; the pair must be sorted."""
+        pipe = build_pipe(pipe_data(**{
+            'Secondary Defect Length': _input(150, 'mm'),
+            'Secondary Defect Depth': _input(0.30, 't'),
+            'First Date': _input('2025-01-01', 'date'),   # later
+            'Second Date': _input('2024-01-01', 'date'),  # earlier
+        }))
+        earlier = datetime.datetime(2024, 1, 1).timestamp()
+        later = datetime.datetime(2025, 1, 1).timestamp()
+        assert pipe.defects[0].measurement_timestamp == pytest.approx(earlier)
+        assert pipe.defects[1].measurement_timestamp == pytest.approx(later)
+
+    def test_reversed_dates_still_yield_a_positive_corrosion_rate(self):
+        # The growth is attached to the dates, so the later (deeper) measurement is
+        # the primary defect; the dates are then entered in reverse order.
+        pipe = assess(pipe_data(**{
+            'Defect Length': _input(210, 'mm'),
+            'Defect Depth': _input(0.26, 't'),
+            'Secondary Defect Length': _input(200, 'mm'),
+            'Secondary Defect Depth': _input(0.25, 't'),
+            'First Date': _input('2025-01-01', 'date'),   # later
+            'Second Date': _input('2024-01-01', 'date'),  # earlier
+        }))
+        rate, rate_length = pipe.calculate_corrosion_rate()
+        assert rate > 0
+        assert rate_length > 0
+        assert pipe.properties.remaining_life is not None
+
+
 class TestAssess:
     def test_full_assessment(self):
         pipe = assess(pipe_data())

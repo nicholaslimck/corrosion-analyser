@@ -439,6 +439,11 @@ class Pipe:
 
         if abs(d_ts) < 1:
             raise ValueError("Timestamps must be different to calculate corrosion rate")
+        if d_ts < 0:
+            raise ValueError(
+                "Defects must be added in chronological order to calculate a corrosion rate: "
+                "the rate is the change in defect size from the earlier inspection to the later"
+            )
 
         r_corr_depth = _SECONDS_PER_DAY * (d_1 - d_0) / d_ts
         r_corr_length = _SECONDS_PER_DAY * (l_1 - l_0) / d_ts

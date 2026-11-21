@@ -106,10 +106,19 @@ def build_pipe(pipe_data: dict) -> models.Pipe:
     else:
         loading_config = None
 
-    pipe = models.Pipe(config=pipe_config)
-    pipe.add_defect(models.Defect(**defect_config))
+    defect_configs = [defect_config]
     if secondary_defect_config['length']:
-        pipe.add_defect(models.Defect(**secondary_defect_config))
+        defect_configs.append(secondary_defect_config)
+
+    # The corrosion rate is a change per unit time from the earlier inspection to the
+    # later one, so order the pair by timestamp rather than by the order the form
+    # happened to supply them.
+    if all('measurement_timestamp' in config for config in defect_configs):
+        defect_configs.sort(key=lambda config: config['measurement_timestamp'])
+
+    pipe = models.Pipe(config=pipe_config)
+    for config in defect_configs:
+        pipe.add_defect(models.Defect(**config))
 
     if loading_config:
         pipe.add_loading(**loading_config)

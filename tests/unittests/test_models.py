@@ -537,6 +537,16 @@ class TestPipe:
                                measurement_timestamp=t0 + days * 86400))
         return pipe
 
+    def test_corrosion_rate_requires_chronological_order(self, valid_config):
+        pipe = Pipe(config=valid_config)
+        t0 = 1_600_000_000.0
+        # later measurement added first
+        pipe.add_defect(Defect(length=210, relative_depth=0.26,
+                               measurement_timestamp=t0 + 365 * 86400))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=t0))
+        with pytest.raises(ValueError, match="chronological order"):
+            pipe.calculate_corrosion_rate()
+
     def test_corrosion_rate_from_two_measurements(self, valid_config):
         pipe = self._two_inspection_pipe(valid_config)
         r_corr, r_corr_length = pipe.calculate_corrosion_rate()
