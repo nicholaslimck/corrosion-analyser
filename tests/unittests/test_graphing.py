@@ -152,3 +152,25 @@ def test_generate_defect_cross_section_plot_combined_defect(interacting_pipe):
     # 3 defects (d1, d2, combined): exercises "Combined Defect" label path
     fig = generate_defect_cross_section_plot(interacting_pipe)
     assert isinstance(fig, go.Figure)
+
+
+def test_single_defect_legend_names(configured_pipe):
+    fig = generate_defect_depth_plot(configured_pipe)
+    names = [trace.name for trace in fig.data]
+    assert names == ['Calculated Limits', 'Measured Defect']
+
+
+def test_two_defect_legend_names(two_defect_pipe):
+    fig = generate_defect_depth_plot(two_defect_pipe)
+    names = [trace.name for trace in fig.data]
+    assert names == ['Calculated Limits', 'Measured Defect 1', 'Measured Defect 2']
+    assert fig.data[2].marker.symbol == 'square'
+
+
+def test_interacting_defect_legend_names(interacting_pipe):
+    fig = generate_defect_depth_plot(interacting_pipe)
+    names = [trace.name for trace in fig.data]
+    assert names == ['Calculated Limits - Primary', 'Calculated Limits - Interacting',
+                     'Measured Defect 1', 'Measured Defect 2', 'Combined Defect']
+    assert fig.data[4].marker.symbol == 'x'
+    assert all(trace.showlegend for trace in fig.data)

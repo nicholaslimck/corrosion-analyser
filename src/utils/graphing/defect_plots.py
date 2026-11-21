@@ -52,22 +52,26 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
 
     fig.update_traces(textposition='top center')
 
-    if len(fig['data']) == 2:
-        fig['data'][0].update(showlegend=True, name='Calculated Limits')
-        fig['data'][1].update(showlegend=True, name='Measured Defect')
-    elif len(fig['data']) == 3:
-        fig['data'][0].update(showlegend=True, name='Calculated Limits')
-        fig['data'][1].update(showlegend=True, name='Measured Defect 1')
-        fig['data'][2].update(showlegend=True, name='Measured Defect 2',
-                              marker=dict(symbol='square'))
-    elif len(fig['data']) == 5:
-        fig['data'][0].update(showlegend=True, name='Calculated Limits - Primary')
-        fig['data'][1].update(showlegend=True, name='Calculated Limits - Interacting')
-        fig['data'][2].update(showlegend=True, name='Measured Defect 1')
-        fig['data'][3].update(showlegend=True, name='Measured Defect 2',
-                              marker=dict(symbol='square'))
-        fig['data'][4].update(showlegend=True, name='Combined Defect',
-                              marker=dict(symbol='x'))
+    # Label the traces from the structure of the assessment rather than from the number
+    # of traces plotted: a count based mapping silently mislabels the series as soon as
+    # one is added, dropped or reordered.
+    interacting = len(pipe.properties.maximum_allowable_defect_depth) > 1
+    curve_names = (['Calculated Limits - Primary', 'Calculated Limits - Interacting']
+                   if interacting else ['Calculated Limits'])
+    for index, name in enumerate(curve_names):
+        fig['data'][index].update(showlegend=True, name=name)
+
+    first_marker = len(curve_names)
+    measured_count = len(pipe.defects)
+    for index, defect in enumerate(pipe.assessment_defects):
+        trace = fig['data'][first_marker + index]
+        if defect is pipe.combined_defect:
+            trace.update(showlegend=True, name='Combined Defect', marker=dict(symbol='x'))
+        elif measured_count == 1:
+            trace.update(showlegend=True, name='Measured Defect')
+        else:
+            trace.update(showlegend=True, name=f'Measured Defect {index + 1}',
+                         marker=dict(symbol='square') if index == 1 else None)
 
     fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig.update_xaxes(fixedrange=True)
