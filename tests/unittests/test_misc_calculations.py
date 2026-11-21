@@ -34,6 +34,51 @@ def test_calculate_inv_cumulative_dist_median():
     assert calculate_inv_cumulative_dist(0.5) == pytest.approx(0.0, abs=1e-10)
 
 
+# DNVGL-RP-F101 Table 3-7 (p.33): calibrated gamma_d and epsilon_d per safety class
+# and inspection sizing accuracy. The polynomial curve fits of Table 3-8 shall
+# reproduce these values.
+TABLE_3_7 = [
+    # (safety_class, StD[d/t], gamma_d, epsilon_d)
+    ('low', 0.00, 1.00, 0.0),
+    ('medium', 0.00, 1.00, 0.0),
+    ('high', 0.00, 1.00, 0.0),
+    ('very high', 0.00, 1.00, 0.0),
+    ('low', 0.04, 1.16, 0.0),
+    ('medium', 0.04, 1.16, 0.0),
+    ('high', 0.04, 1.16, 0.0),
+    ('very high', 0.04, 1.19, 0.0),
+    ('low', 0.08, 1.20, 1.0),
+    ('medium', 0.08, 1.28, 1.0),
+    ('high', 0.08, 1.32, 1.0),
+    ('very high', 0.08, 1.43, 1.0),
+    ('low', 0.16, 1.20, 2.0),
+    ('medium', 0.16, 1.38, 2.0),
+    ('high', 0.16, 1.58, 2.0),
+    ('very high', 0.16, 1.84, 2.0),
+]
+
+
+@pytest.mark.parametrize('safety_class,accuracy,gamma_d,epsilon_d', TABLE_3_7)
+def test_partial_safety_factors_match_table_3_7(safety_class, accuracy, gamma_d, epsilon_d):
+    factors = calculate_partial_safety_factors(safety_class, 'relative', accuracy)
+    assert factors['gamma_d'] == pytest.approx(gamma_d, abs=6e-3)
+    assert factors['epsilon_d'] == pytest.approx(epsilon_d, abs=6e-3)
+
+
+def test_very_high_safety_factor_never_below_unity():
+    """gamma_d is a safety factor on depth: it must reduce, never amplify, capacity."""
+    for accuracy in [0.0, 0.01, 0.02, 0.029, 0.03, 0.08, 0.16]:
+        factors = calculate_partial_safety_factors('very high', 'relative', accuracy)
+        assert factors['gamma_d'] is not None, f'gamma_d unset at StD={accuracy}'
+        assert factors['gamma_d'] >= 1.0, f'gamma_d={factors["gamma_d"]} < 1.0 at StD={accuracy}'
+
+
+def test_very_high_safety_factor_is_continuous():
+    below = calculate_partial_safety_factors('very high', 'relative', 0.0299)['gamma_d']
+    above = calculate_partial_safety_factors('very high', 'relative', 0.0300)['gamma_d']
+    assert above - below == pytest.approx(0.0, abs=0.01)
+
+
 def test_calculate_inv_cumulative_dist_95th_percentile():
     assert calculate_inv_cumulative_dist(0.975) == pytest.approx(1.96, abs=1e-2)
 

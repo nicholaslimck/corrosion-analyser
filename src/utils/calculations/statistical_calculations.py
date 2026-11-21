@@ -96,9 +96,12 @@ def calculate_partial_safety_factors(safety_class, inspection_method, inspection
         if inspection_accuracy <= 0.16:
             gamma_d = 1.0 + 4.3 * inspection_accuracy - 4.1 * pow(inspection_accuracy, 2)
     elif safety_class == "very high":
+        # DNVGL-RP-F101 Table 3-8: gamma_d = 1.0 + 4.0 * StD[d/t] for StD < 0.03
         if inspection_accuracy < 0.03:
-            gamma_d = 1.0 * 4.0 * inspection_accuracy
-        elif 0.03 <= inspection_accuracy < 0.16:
+            gamma_d = 1.0 + 4.0 * inspection_accuracy
+        # Polynomial range is 0.03 <= a < 0.16; at a = 0.16 the tabulated
+        # (Table 3-7) value is gamma_d = 1.84 and the polynomial evaluates to 1.8435
+        elif 0.03 <= inspection_accuracy <= 0.16:
             gamma_d = 0.92 + 7.1 * inspection_accuracy - 8.3 * pow(inspection_accuracy, 2)
 
     # Calculate epsilon_d
