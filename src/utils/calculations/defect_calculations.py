@@ -234,6 +234,16 @@ def calculate_maximum_defect_length(
 
 
 def calculate_combined_length(defects: list):
+    """
+    Total axial length of a combined defect, DNVGL-RP-F101 Section 3.8.2 Step 7:
+    the length of the combined defect includes the spacing between the defects.
+
+    Args:
+        defects: two adjacent defects, ordered by axial position
+
+    Returns:
+        combined_length: total length including spacing (mm)
+    """
     defect_1 = defects[0]
     defect_2 = defects[1]
 
@@ -242,6 +252,17 @@ def calculate_combined_length(defects: list):
 
 
 def calculate_combined_depth(defects: list, measurement_method: str):
+    """
+    Effective depth of a combined defect, DNVGL-RP-F101 Section 3.8.2 Step 8:
+    a rectangular approximation to the corroded area over the total length.
+
+    Args:
+        defects: two adjacent defects, ordered by axial position
+        measurement_method: 'relative' or 'absolute'
+
+    Returns:
+        combined_depth: length weighted depth, relative (d/t) or absolute (mm)
+    """
     defect_1 = defects[0]
     defect_2 = defects[1]
 
@@ -256,8 +277,37 @@ def calculate_combined_depth(defects: list, measurement_method: str):
 
 
 def verify_interaction(defects: list, pipe_diameter, pipe_thickness):
+    """
+    Approximate test for axial interaction between two adjacent defects.
+
+    DNVGL-RP-F101 Section 3.8.2 defines interaction through a projection line
+    procedure: the corroded section is divided into sections of a minimum length of
+    5.0 sqrt(D t) with a minimum overlap of 2.5 sqrt(D t) (Steps 1-2), defects are
+    projected onto axial lines at Z = 360 sqrt(t / D) degrees (Steps 3-4), and the
+    pressure resistance of all combinations of adjacent defects n to m is calculated
+    with the minimum governing the assessment (Steps 6-9).
+
+    This is a two-defect approximation of that procedure: defects are treated as
+    interacting when their combined axial extent, including the separation between
+    them, fits within one minimum section length of 5.0 sqrt(D t). Circumferential
+    projection is not implemented, so all defects are assumed to share a projection
+    line. Only the first two defects are considered - see Known limitations.
+
+    Args:
+        defects: adjacent defects, ordered by axial position
+        pipe_diameter: nominal outside diameter (mm)
+        pipe_thickness: nominal wall thickness (mm)
+
+    Returns:
+        True if the defects should be combined into a single defect
+    """
+    if len(defects) > 2:
+        logger.warning(
+            f'{len(defects)} defects supplied, but interaction is only assessed between the '
+            f'first two - see Known limitations in the README'
+        )
     separation = defects[1].position - defects[0].position
-    # DNV-RP-F101 Section 3.7.5: defects interact when combined extent < 5.0*sqrt(D*t)
+    # DNVGL-RP-F101 Section 3.8.2 Step 1: minimum length of a sectioned assessment
     minimum_length = 5.0 * sqrt(pipe_diameter * pipe_thickness)
     if separation + sum([defect.length for defect in defects]) < minimum_length:
         return True

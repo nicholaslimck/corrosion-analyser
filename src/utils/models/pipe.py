@@ -235,7 +235,9 @@ class Pipe:
 
         defects = self.defects.copy()
 
-        # Ignore the second defect
+        # The allowable depth limits are only computed for the governing defect. With a
+        # third defect (the combined defect appended by calculate_pressure_resistance)
+        # the second entry is the combined defect, which is what the second curve shows.
         if len(self.defects) > 1:
             del defects[1]
 
