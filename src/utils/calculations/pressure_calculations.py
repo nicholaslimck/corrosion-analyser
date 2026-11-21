@@ -1,3 +1,5 @@
+from loguru import logger
+
 from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_circumferential_corroded_length_ratio)
 
@@ -62,6 +64,10 @@ def calculate_pressure_resistance_longitudinal_defect(
     """
     if not q:
         q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
+    # DNVGL-RP-F101 Section 3.7.3.1: "If gamma_d (d/t)* >= 1 then pcorr = 0"
+    if gamma_d * relative_defect_depth_with_uncertainty >= 1:
+        logger.debug('gamma_d (d/t)* >= 1, pressure resistance is zero')
+        return 0.0
     p_corr = (gamma_m * ((2 * t_nominal * f_u) / (d_nominal - t_nominal)) *
               ((1 - gamma_d * relative_defect_depth_with_uncertainty) /
                (1 - gamma_d * relative_defect_depth_with_uncertainty / q)))
@@ -104,6 +110,10 @@ def calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
     """
     if not q:
         q = calculate_length_correction_factor(defect_length, d_nominal, t_nominal)
+    # DNVGL-RP-F101 Section 3.7.3.1: "If gamma_d (d/t)* >= 1 then pcorr = 0"
+    if gamma_d * relative_defect_depth_with_uncertainty >= 1:
+        logger.debug('gamma_d (d/t)* >= 1, pressure resistance is zero')
+        return 0.0
     p_corr = calculate_pressure_resistance_longitudinal_defect(
         gamma_m=gamma_m, gamma_d=gamma_d, t_nominal=t_nominal, defect_length=defect_length, d_nominal=d_nominal,
         relative_defect_depth_with_uncertainty=relative_defect_depth_with_uncertainty, f_u=f_u, q=q)

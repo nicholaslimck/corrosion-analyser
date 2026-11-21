@@ -178,6 +178,27 @@ class TestDefect:
         with pytest.raises(ValueError, match="between 0 and 1"):
             Defect(length=200, relative_depth=1.5)
 
+    def test_measured_depth_above_85_percent_raises(self):
+        """DNVGL-RP-F101 3.7.2.1: measured depth shall not exceed 85% of t."""
+        with pytest.raises(ValueError, match="85% of the wall thickness|exceeds the maximum"):
+            Defect(length=200, relative_depth=0.9)
+
+    def test_measured_depth_above_85_percent_from_absolute_depth_raises(self):
+        factors = Factors(
+            safety_class='medium',
+            inspection_method='absolute',
+            measurement_accuracy=0.5,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        defect = Defect(length=200, depth=17.0, factors=factors)  # 17.0 / 19.1 = 0.89
+        with pytest.raises(ValueError, match="exceeds the maximum"):
+            defect.complete_dimensions()
+
+    def test_measured_depth_of_exactly_85_percent_is_allowed(self):
+        defect = Defect(length=200, relative_depth=0.85)
+        assert defect.relative_depth == 0.85
+
     def test_relative_depth_zero_raises(self):
         with pytest.raises(ValueError):
             Defect(length=200, relative_depth=0)

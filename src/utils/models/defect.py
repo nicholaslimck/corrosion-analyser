@@ -3,7 +3,8 @@ from loguru import logger
 
 from src.utils.calculations.defect_calculations import (calculate_length_correction_factor,
                                                         calculate_relative_defect_depth_with_inaccuracies,
-                                                        calculate_combined_length, calculate_combined_depth)
+                                                        calculate_combined_length, calculate_combined_depth,
+                                                        MAX_MEASURED_RELATIVE_DEPTH)
 from src.utils.models.factors import Factors
 
 
@@ -58,11 +59,31 @@ class Defect:
                 self.depth = combined_depth
             self.factors = factors
 
+        self.validate_measured_depth()
+
+    def validate_measured_depth(self):
+        """
+        Enforce the acceptance criteria on defect depth, DNVGL-RP-F101 Section 3.7.2.1:
+        measured defect depths shall not exceed 85% of the wall thickness.
+
+        Raises:
+            ValueError: if the measured relative defect depth exceeds 0.85
+        """
+        if self.relative_depth is None:
+            return
+        if self.relative_depth > MAX_MEASURED_RELATIVE_DEPTH:
+            raise ValueError(
+                f'Measured defect depth of {self.relative_depth:.3f}t exceeds the maximum '
+                f'of {MAX_MEASURED_RELATIVE_DEPTH}t permitted by DNV-RP-F101 3.7.2.1 '
+                f'(minimum remaining wall thickness is 15% of t)'
+            )
+
     def complete_dimensions(self):
         if not self.depth:
             self.depth = self.relative_depth * self.factors.wall_thickness
         if not self.relative_depth:
             self.relative_depth = self.depth / self.factors.wall_thickness
+        self.validate_measured_depth()
 
     def calculate_d_t_adjusted(self):
         """

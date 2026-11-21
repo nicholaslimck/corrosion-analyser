@@ -1,7 +1,8 @@
 import pytest
 
 from src.utils.calculations.pressure_calculations import (calculate_pressure_resistance_longitudinal_defect,
-                                                          calculate_pressure_capacity)
+                                                          calculate_pressure_capacity,
+                                                          calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
 from src.utils.calculations.defect_calculations import calculate_max_defect_depth_longitudinal
 
 
@@ -96,3 +97,48 @@ def test_pressure_resistance_decreases_with_depth(example_a_1):
         for d in depths
     ]
     assert all(r1 > r2 for r1, r2 in zip(resistances, resistances[1:]))
+
+
+def test_pressure_resistance_zero_when_gamma_d_depth_exceeds_unity():
+    """DNVGL-RP-F101 3.7.3.1: if gamma_d (d/t)* >= 1 then pcorr = 0."""
+    p_corr = calculate_pressure_resistance_longitudinal_defect(
+        gamma_m=0.85,
+        gamma_d=1.28,
+        t_nominal=19.1,
+        defect_length=200,
+        d_nominal=812.8,
+        relative_defect_depth_with_uncertainty=0.79,  # 1.28 * 0.79 = 1.0112
+        f_u=495.26,
+    )
+    assert p_corr == 0.0
+
+
+def test_pressure_resistance_zero_with_compressive_load_when_depth_exceeds_unity():
+    p_corr_comp = calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+        gamma_m=0.85,
+        gamma_d=1.28,
+        t_nominal=19.1,
+        d_nominal=812.8,
+        defect_length=200,
+        defect_width=50,
+        defect_relative_depth_measured=0.79,
+        relative_defect_depth_with_uncertainty=0.79,
+        f_u=495.26,
+        sigma_l=-50.0,
+        phi=0.85,
+    )
+    assert p_corr_comp == 0.0
+
+
+def test_pressure_resistance_never_negative_for_extreme_depth():
+    """A shallow validity breach must not produce a negative capacity."""
+    p_corr = calculate_pressure_resistance_longitudinal_defect(
+        gamma_m=0.85,
+        gamma_d=1.28,
+        t_nominal=19.1,
+        defect_length=200,
+        d_nominal=812.8,
+        relative_defect_depth_with_uncertainty=0.78,
+        f_u=495.26,
+    )
+    assert p_corr >= 0.0

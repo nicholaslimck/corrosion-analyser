@@ -186,3 +186,15 @@ def test_verify_interaction_false():
     d1 = Defect(length=100, relative_depth=0.3, position=0)
     d2 = Defect(length=100, relative_depth=0.3, position=500)
     assert not verify_interaction([d1, d2], pipe_diameter=812.8, pipe_thickness=19.1)
+
+
+def test_maximum_defect_depth_capped_at_85_percent():
+    """A capacity-derived allowable depth above 0.85t is capped by 3.7.2.1."""
+    # 1 / 1.0 - 0 = 1.0, capped to the 85% acceptance limit
+    assert calculate_maximum_defect_depth(gamma_d=1.0, epsilon_d=0.0, std_dev=0.0) == 0.85
+
+
+def test_maximum_defect_depth_not_capped_below_85_percent():
+    # 1 / 1.28 - 1.0 * 0.08 = 0.70125, below the cap
+    assert calculate_maximum_defect_depth(
+        gamma_d=1.28, epsilon_d=1.0, std_dev=0.08) == pytest.approx(0.70125)

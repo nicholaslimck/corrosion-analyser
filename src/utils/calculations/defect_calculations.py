@@ -3,6 +3,10 @@ import math
 from loguru import logger
 from sympy import Symbol, Eq, sqrt, solve, pi
 
+# DNVGL-RP-F101 §3.7.2.1 (p.37): "Measured defects depths shall not exceed 85% of
+# the wall thickness, i.e. minimum remaining wall thickness >= 15% of t".
+MAX_MEASURED_RELATIVE_DEPTH = 0.85
+
 
 def calculate_length_correction_factor(defect_length: float,
                                        d_nominal: float,
@@ -175,7 +179,9 @@ def calculate_maximum_defect_depth(gamma_d, epsilon_d, std_dev):
 
     """
     defect_depth = (1 / gamma_d) - epsilon_d * std_dev
-    return defect_depth
+    # A measured depth above 85% of the wall thickness is outside the acceptance
+    # criteria regardless of the calculated capacity, see Section 3.7.2.1
+    return min(defect_depth, MAX_MEASURED_RELATIVE_DEPTH)
 
 
 def calculate_maximum_defect_length(
