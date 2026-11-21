@@ -589,6 +589,31 @@ class TestPipe:
         with pytest.raises(ValueError, match="Maximum allowable defect depth"):
             pipe.estimate_remaining_life()
 
+    def test_allowable_depth_curve_covers_long_defects_with_loading(self, valid_config):
+        """The curve must extend past the reported defect, not stop at a fixed 1000 mm."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=1200, width=50, relative_depth=0.25))
+        pipe.add_loading(combined_stress=-50)
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        curve = pipe.properties.maximum_allowable_defect_depth[0]
+        assert curve['defect_length'].max() >= 1200
+
+    def test_allowable_depth_curve_is_bounded_without_loading(self, valid_config):
+        """The no-loading curve must not run off to tens of metres of length."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        curve = pipe.properties.maximum_allowable_defect_depth[0]
+        assert curve['defect_length'].max() <= 1000
+
     def test_analyze_is_idempotent(self, valid_config):
         """analyze() must reset derived state rather than append to it."""
         pipe = Pipe(config=valid_config)

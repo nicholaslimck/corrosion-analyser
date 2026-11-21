@@ -15,6 +15,12 @@ from .factors import Factors
 
 _SECONDS_PER_DAY = 86400
 
+# The allowable depth curves are sampled over a multiple of the largest defect length,
+# so the reported defect always falls inside the curve, and never over less than 1 m.
+_MINIMUM_CURVE_LENGTH = 1000.0   # mm
+_CURVE_LENGTH_FACTOR = 3.0
+_CURVE_SAMPLES = 2001            # defect length samples in the loading branch
+
 
 @dataclass
 class PipeDimensions:
@@ -271,6 +277,9 @@ class Pipe:
         if self.combined_defect is not None:
             defects.append(self.combined_defect)
 
+        max_defect_length = max(defect.length for defect in defects)
+        upper_length = max(_MINIMUM_CURVE_LENGTH, _CURVE_LENGTH_FACTOR * max_defect_length)
+
         for index, defect in enumerate(defects):
             rows = []
             if not self.loading:  # With no loading
@@ -290,7 +299,7 @@ class Pipe:
                         st_dev=defect.factors.standard_deviation
                     )
                     logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
-                    if relative_depth > 0 and length is not None:
+                    if relative_depth > 0 and length is not None and length <= upper_length:
                         rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
                 if not rows:
                     logger.warning("No valid defect length found for any depth")
@@ -303,7 +312,9 @@ class Pipe:
                 target_pressure = self.properties.effective_pressure
                 depth_zeroed = False
 
-                for defect_length in np.arange(0, 1000, resolution * 500):
+                # Sampled to cover the defect and its surroundings, at a constant
+                # number of points so the cost does not grow with the extent.
+                for defect_length in np.linspace(0, upper_length, _CURVE_SAMPLES):
                     if not depth_zeroed:
                         defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
                             gamma_m=self.factors.gamma_m,
