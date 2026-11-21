@@ -3,7 +3,7 @@ import time
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, callback
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 from loguru import logger
 
 from src.utils import models
@@ -135,7 +135,7 @@ def example_a_1_3():
     Output('example_description', 'children'),
     Output('example_evaluation', 'children'),
     Input('example-selector', 'value'),
-    State('theme-store', 'data'),
+    Input('theme-store', 'data'),
 )
 def update_graph(example_selected, theme):
     start_time = time.time()

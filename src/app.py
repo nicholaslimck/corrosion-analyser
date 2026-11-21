@@ -90,6 +90,20 @@ def manage_theme(n_clicks, ts, current_theme):
 
 app.clientside_callback(
     """
+    function(n_clicks) {
+        // The browser dialog offers "Save as PDF" on every platform; the print
+        // stylesheet turns the page into a document rather than a UI.
+        if (n_clicks) { setTimeout(function() { window.print(); }, 100); }
+        return '';
+    }
+    """,
+    Output('print-trigger', 'children'),
+    Input('print-button', 'n_clicks'),
+    prevent_initial_call=True,
+)
+
+app.clientside_callback(
+    """
     function(theme) {
         document.body.setAttribute('data-theme', theme || 'dark');
         return theme;

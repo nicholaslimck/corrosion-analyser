@@ -1,4 +1,5 @@
 import datetime
+import json
 import time
 
 import dash
@@ -10,6 +11,7 @@ from loguru import logger
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
 from src.utils.assessment import build_pipe
+from src.utils.report import build_report, filename, render_markdown
 from src.utils.layout import center_align_style, build_evaluation_alert
 
 dash.register_page(__name__)
@@ -192,6 +194,27 @@ def layout():
                 dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=8),
                 justify='center'
             ),
+            dbc.Row(
+                dbc.Col(
+                    html.Div([
+                        dbc.Button('Print / Save as PDF', id='print-button', color='secondary',
+                                   outline=True, size='sm', className='me-2',
+                                   title='Prints in the current theme - switch to light first '
+                                         'for a print-friendly copy'),
+                        dbc.Button('Download Markdown', id='download-markdown-button', color='secondary',
+                                   outline=True, size='sm', className='me-2'),
+                        dbc.Button('Download JSON', id='download-json-button', color='secondary',
+                                   outline=True, size='sm'),
+                        html.Div(id='print-trigger', style={'display': 'none'}),
+                    ], className='text-center mt-2'),
+                    xs=12, md=8
+                ),
+                justify='center',
+                className='no-print'
+            ),
+            dcc.Store(id='report-store', storage_type='memory'),
+            dcc.Download(id='download-markdown'),
+            dcc.Download(id='download-json'),
         ],
         style={"margin-top": "15px", **center_align_style}
     )
@@ -234,6 +257,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     Output('single_defect_table_evaluation', 'children'),
     Output('single_defect_input_error_modal', 'is_open'),
     Output('single_defect_input_error_modal_body', 'children'),
+    Output('report-store', 'data'),
     Input('single_defect_table_analyse', 'n_clicks'),
     State('single_defect_select_safety_class', 'value'),
     State('input-outer-diameter', 'value'),
@@ -262,7 +286,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     State('input-sec-separation', 'value'),
     State('single_defect_date_range', 'start_date'),
     State('single_defect_date_range', 'end_date'),
-    State('theme-store', 'data'),
+    Input('theme-store', 'data'),
 )
 def calculate_pipe_characteristics(
         n_clicks,
@@ -310,7 +334,7 @@ def calculate_pipe_characteristics(
     theme = theme or 'dark'
     error_encountered = False
     error = ''
-    fig1 = fig2 = fig3 = analysis = evaluation = no_update
+    fig1 = fig2 = fig3 = analysis = evaluation = report = no_update
 
     try:
         # Input validation and model construction live in src.utils.assessment
@@ -340,6 +364,7 @@ def calculate_pipe_characteristics(
         ], className="mt-3 mb-3")
 
         evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
+        report = build_report(pipe)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
         logger.error(f"Validation error: {e}")
@@ -350,7 +375,31 @@ def calculate_pipe_characteristics(
         error_encountered = True
         error = "An unexpected error occurred. Please check your inputs and try again."
 
-    return fig1, fig2, fig3, analysis, evaluation, error_encountered, error
+    return fig1, fig2, fig3, analysis, evaluation, error_encountered, error, report
+
+
+@callback(
+    Output('download-markdown', 'data'),
+    Input('download-markdown-button', 'n_clicks'),
+    State('report-store', 'data'),
+    prevent_initial_call=True,
+)
+def download_markdown(n_clicks, report):
+    if not n_clicks or not report:
+        return no_update
+    return dcc.send_string(render_markdown(report), filename(report, 'md'))
+
+
+@callback(
+    Output('download-json', 'data'),
+    Input('download-json-button', 'n_clicks'),
+    State('report-store', 'data'),
+    prevent_initial_call=True,
+)
+def download_json(n_clicks, report):
+    if not n_clicks or not report:
+        return no_update
+    return dcc.send_string(json.dumps(report, indent=2), filename(report, 'json'))
 
 
 @callback(

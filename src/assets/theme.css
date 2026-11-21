@@ -370,3 +370,48 @@ p, span, div {
 img[src*="#threeQuarterWidth"] {
   width: 75vw;
 }
+
+/* ── Print / save as PDF ─────────────────────────────────────────────────────
+   A printed assessment is a document: drop the chrome, keep the content, and
+   stop cards and graphs from being split across pages. */
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .navbar,
+  #input_sidebar,
+  .offcanvas,
+  .offcanvas-backdrop,
+  .no-print,
+  #single_defect_input_error_modal {
+    display: none !important;
+  }
+
+  .container-fluid {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .card,
+  .graph-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cccccc !important;
+  }
+
+  .alert {
+    border: 1px solid #cccccc !important;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}
