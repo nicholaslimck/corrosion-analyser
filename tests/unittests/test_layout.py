@@ -62,3 +62,38 @@ class TestEvaluationAlert:
         text = rendered(alert)
         assert 'Corrosion is unacceptable' in text
         assert '>' in text
+
+    def test_quantifies_utilisation_and_margin(self):
+        text = rendered(build_evaluation_alert(15.75, 17.172, 'bar'))
+        assert '91.7% of capacity' in text
+        assert 'Margin: 14.22 bar' in text
+
+    def test_margin_follows_the_selected_unit(self):
+        assert 'Margin: 1.42 MPa' in rendered(build_evaluation_alert(15.75, 17.172, 'MPa'))
+
+    def test_names_the_governing_clause_when_factors_are_supplied(self):
+        text = rendered(build_evaluation_alert(15.75, 17.172, 'bar',
+                                               safety_class='medium', design_factor=0.96))
+        assert 'DNVGL-RP-F101' in text
+        assert 'Safety Class Medium' in text
+        assert 'γm = 0.96' in text
+
+    def test_omits_the_clause_when_factors_are_not_supplied(self):
+        # The three-argument call sites still work and stay clause-free.
+        assert 'Safety Class' not in rendered(build_evaluation_alert(15.75, 17.172, 'bar'))
+
+    def test_rejection_names_the_next_steps(self):
+        text = rendered(build_evaluation_alert(14.25, 3.48, 'bar'))
+        assert 'Reduce the operating pressure below' in text
+        assert 'Re-inspect the defect' in text
+        assert 'Repair or replace' in text
+
+    def test_outcome_is_not_carried_by_colour_alone(self):
+        assert '✔' in rendered(build_evaluation_alert(15.75, 17.172, 'bar'))
+        assert '✖' in rendered(build_evaluation_alert(14.25, 3.48, 'bar'))
+
+    def test_zero_resistance_does_not_advise_a_zero_pressure_target(self):
+        # A defect outside the acceptance limits has no pressure lever.
+        text = rendered(build_evaluation_alert(157.5, 0.0, 'bar'))
+        assert 'outside the RP-F101 acceptance limits' in text
+        assert 'below 0.00 bar' not in text

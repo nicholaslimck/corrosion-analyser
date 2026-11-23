@@ -378,8 +378,13 @@ def calculate_pipe_characteristics(
             dbc.ListGroup(build_result_items(pipe, pressure_unit), flush=True),
         ], className="mt-3 mb-3")
 
-        evaluation = build_evaluation_alert(pipe.properties.effective_pressure,
-                                            pipe.properties.pressure_resistance, pressure_unit)
+        evaluation = build_evaluation_alert(
+            pipe.properties.effective_pressure,
+            pipe.properties.pressure_resistance,
+            pressure_unit,
+            safety_class=pipe.factors.safety_class,
+            design_factor=pipe.factors.gamma_m,
+        )
         report = build_report(pipe)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:

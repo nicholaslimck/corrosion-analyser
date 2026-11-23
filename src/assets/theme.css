@@ -6,6 +6,7 @@
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --unit-text: #cbd5e1;
   --accent: #38bdf8;
   --pass: #4ade80;
   --fail: #ef4444;
@@ -21,10 +22,11 @@
   --border: #e2e8f0;
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --accent: #0ea5e9;
-  --pass: #16a34a;
-  --fail: #dc2626;
+  --text-muted: #64748b;
+  --unit-text: #475569;
+  --accent: #0369a1;
+  --pass: #15803d;
+  --fail: #b91c1c;
   --pass-bg: rgba(22, 163, 74, 0.1);
   --pass-border: rgba(22, 163, 74, 0.3);
   --fail-bg: rgba(220, 38, 38, 0.1);
@@ -220,7 +222,7 @@ body {
 .input-group-text {
   background-color: var(--border) !important;
   border-color: var(--border) !important;
-  color: var(--text-muted) !important;
+  color: var(--unit-text) !important;
   font-size: 0.75rem;
   min-width: 2.5rem;
   justify-content: center;
@@ -306,6 +308,55 @@ body {
   background-color: var(--fail-bg) !important;
   border-color: var(--fail-border) !important;
   color: var(--fail) !important;
+}
+
+/* ── Verdict card ──
+   The outcome is carried by an icon and a word, not by colour alone; the
+   number that matters (utilisation against capacity) is the loudest element. */
+.verdict-card {
+  border-width: 1px !important;
+}
+
+.verdict-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.verdict-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary) !important;
+  margin-bottom: 0.25rem;
+}
+
+.verdict-utilisation {
+  background-color: var(--border) !important;
+}
+
+.verdict-card.alert-success .progress-bar {
+  background-color: var(--pass) !important;
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+/* Light mode's pass colour is a dark green, so the bar label must invert. */
+[data-theme="light"] .verdict-card.alert-success .progress-bar {
+  color: #ffffff !important;
+}
+
+.verdict-card.alert-danger .progress-bar {
+  background-color: var(--fail) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.verdict-actions {
+  font-size: 0.85rem;
+  color: var(--text-primary) !important;
+}
+
+/* Darker accent in light mode needs light text on primary buttons. */
+[data-theme="light"] .btn-primary {
+  color: #ffffff !important;
 }
 
 /* ── Modal ── */
