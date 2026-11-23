@@ -158,13 +158,16 @@ def layout():
                 n_clicks=0,
             ),
             secondary_inputs,
-            dbc.Button(
-                'Analyse',
-                id='single_defect_table_analyse',
-                className="w-100 mt-2 mb-3",
-                color="primary",
-            ),
             html.Div(id='single_defect_table_analysis'),
+            html.Div(
+                dbc.Button(
+                    'Analyse',
+                    id='single_defect_table_analyse',
+                    className='w-100',
+                    color='primary',
+                ),
+                className='analyse-footer',
+            ),
         ],
         id="input_sidebar",
         title="Input Parameters",

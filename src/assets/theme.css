@@ -105,6 +105,62 @@ body {
   filter: none;
 }
 
+/* ── Docked input panel ─────────────────────────────────────────────────────
+   The offcanvas is rendered as a body-level sibling of the app container, so
+   it can never be a grid column of the page. Dock it instead: offset the app
+   by the panel width at wide viewports and let the panel own the left rail.
+   Below 1200px it stays an overlay drawer, closed until the user opens it. */
+@media (min-width: 1200px) {
+  body:has(#input_sidebar) #react-entry-point {
+    margin-left: 420px;
+  }
+
+  #input_sidebar {
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  /* Nothing to toggle or close when the panel is permanently docked. */
+  #input_sidebar .btn-close,
+  #input_sidebar_toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  /* In flow above the page title instead of floating over it. */
+  #input_sidebar_toggle {
+    position: static !important;
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* The panel body is the scroll container, so the action footer can pin to its
+   base instead of sitting below 22 controls and off the fold. */
+#input_sidebar .offcanvas-body {
+  overflow-y: auto;
+  padding-bottom: 0;
+}
+
+.analyse-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 14px -6px rgba(2, 6, 23, 0.45);
+}
+
+.analyse-footer .btn {
+  height: 44px;
+}
+
+[data-theme="light"] .analyse-footer {
+  box-shadow: 0 -10px 14px -6px rgba(15, 23, 42, 0.12);
+}
+
 /* ── Accordion ── */
 .accordion-item {
   background-color: var(--bg-surface) !important;
