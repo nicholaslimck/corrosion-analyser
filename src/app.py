@@ -37,18 +37,32 @@ navbar = dbc.NavbarSimple(
             for page in dash.page_registry.values()
         ],
         dbc.NavItem(
-            dbc.Select(
-                id='pressure-unit',
-                options=[{'label': f'Pressure in {u}', 'value': u} for u in PRESSURE_UNITS],
-                value='bar',
-                size='sm',
-                className='navbar-unit-select',
-            ),
-            className='me-2',
+            [
+                # dbc.Select whitelists its props and rejects aria-label, so the
+                # select is named by a bound, visually hidden label instead.
+                html.Label('Pressure unit', htmlFor='pressure-unit',
+                           className='visually-hidden'),
+                dbc.Select(
+                    id='pressure-unit',
+                    options=[{'label': f'Pressure in {u}', 'value': u} for u in PRESSURE_UNITS],
+                    value='bar',
+                    size='sm',
+                    className='navbar-unit-select',
+                ),
+            ],
+            className='me-2 d-flex align-items-center',
         ),
         dbc.NavItem(
-            dbc.Button('🌙', id='theme-toggle', color='link',
-                       className='navbar-theme-toggle', n_clicks=0)
+            # html.Button, not dbc.Button: dbc whitelists its props, so it cannot
+            # carry aria-pressed (which the theme callback now outputs).
+            html.Button(
+                '🌙',
+                id='theme-toggle',
+                className='navbar-theme-toggle btn btn-link',
+                n_clicks=0,
+                title='Toggle light and dark theme',
+                **{'aria-label': 'Toggle light and dark theme'},
+            )
         ),
     ],
     id='main-navbar',
@@ -72,6 +86,7 @@ app.layout = html.Div([
     Output('theme-store', 'data'),
     Output('theme-toggle', 'children'),
     Output('main-navbar', 'color'),
+    Output('theme-toggle', 'aria-pressed'),
     Input('theme-toggle', 'n_clicks'),
     Input('theme-store', 'modified_timestamp'),
     State('theme-store', 'data'),
@@ -85,7 +100,8 @@ def manage_theme(n_clicks, ts, current_theme):
     href = LIGHT_THEME_URL if new_theme == 'light' else DARK_THEME_URL
     icon = '☀️' if new_theme == 'dark' else '🌙'
     navbar_color = _NAVBAR_COLOR_DARK if new_theme == 'dark' else _NAVBAR_COLOR_LIGHT
-    return href, new_theme, icon, navbar_color
+    pressed = 'true' if new_theme == 'light' else 'false'
+    return href, new_theme, icon, navbar_color, pressed
 
 
 app.clientside_callback(

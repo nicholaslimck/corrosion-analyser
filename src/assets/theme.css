@@ -359,6 +359,24 @@ body {
   color: #ffffff !important;
 }
 
+/* ── Focus visibility ──
+   Accordion headers defined a focus ring in a token that computed to none, so
+   eight headers looked identical focused and blurred. The brand link relied on
+   the UA outline at 1.30:1 against the navbar. */
+.accordion-button:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+a:focus-visible:not(.nav-link),
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+}
+
 /* ── Modal ── */
 .modal-content {
   background-color: var(--bg-surface) !important;

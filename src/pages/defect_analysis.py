@@ -17,11 +17,13 @@ from src.utils.layout import center_align_style, build_evaluation_alert, build_r
 dash.register_page(__name__)
 
 
-def _input_row(label: str, input_id: str, default, unit: str, unit_id: str = None) -> dbc.Row:
+def _input_row(label: str, input_id: str, default, unit: str, unit_id: str | None = None,
+               optional: bool = False) -> dbc.Row:
     unit_component = (dbc.InputGroupText(unit, id=unit_id)
                       if unit_id else dbc.InputGroupText(unit))
     return dbc.Row([
-        dbc.Col(html.Label(label, className='col-form-label small'), width=7),
+        dbc.Col(html.Label(f"{label}{' (optional)' if optional else ''}",
+                           htmlFor=input_id, className='col-form-label small'), width=7),
         dbc.Col(
             dbc.InputGroup([
                 dbc.Input(
@@ -51,7 +53,7 @@ def layout():
 
         dbc.AccordionItem([
             _input_row('Length', 'input-defect-length', 200, 'mm'),
-            _input_row('Width', 'input-defect-width', None, 'mm'),
+            _input_row('Width', 'input-defect-width', None, 'mm', optional=True),
             _input_row('Depth', 'input-defect-depth', 0.25, 't', unit_id='unit-defect-depth'),
         ], title='Defect', item_id='defect'),
 
@@ -106,7 +108,8 @@ def layout():
         [
             dbc.Row([
                 dbc.Col([
-                    html.Small("Safety Class", className="text-muted"),
+                    html.Label("Safety Class", htmlFor='single_defect_select_safety_class',
+                               className="col-form-label small"),
                     dbc.Select(
                         id='single_defect_select_safety_class',
                         value='medium',
@@ -120,7 +123,8 @@ def layout():
                     ),
                 ]),
                 dbc.Col([
-                    html.Small("Defect depth unit", className="text-muted"),
+                    html.Label("Defect depth unit", htmlFor='single_defect_select_measurement',
+                               className="col-form-label small"),
                     dbc.Select(
                         id='single_defect_select_measurement',
                         value='relative',
@@ -134,7 +138,8 @@ def layout():
             ], className="mb-2"),
             dbc.Row(
                 dbc.Col([
-                    html.Small("Sizing accuracy", className="text-muted"),
+                    html.Label("Sizing accuracy", htmlFor='single_defect_select_accuracy_type',
+                               className="col-form-label small"),
                     dbc.Select(
                         id='single_defect_select_accuracy_type',
                         value='relative',
