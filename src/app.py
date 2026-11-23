@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, State
+from dash import html, dcc, Input, Output, State
 from loguru import logger
 
 from src.utils import IS_DOCKER
@@ -18,24 +18,13 @@ LIGHT_THEME_URL = dbc.themes.FLATLY
 logger.remove()
 logger.add(sys.stdout, level=environ.get('LOG_LEVEL', 'INFO' if IS_DOCKER else 'DEBUG'))
 
-if 'REDIS_URL' in environ:
-    from celery import Celery
-    celery_app = Celery(__name__, broker=environ['REDIS_URL'], backend=environ['REDIS_URL'])
-    background_callback_manager = CeleryManager(
-        celery_app, cache_by=[lambda: launch_uid], expire=60
-    )
-else:
-    import diskcache
-    cache = diskcache.Cache("/tmp/corrosion-analyser-cache")
-    background_callback_manager = DiskcacheManager(
-        cache, cache_by=[lambda: launch_uid], expire=60
-    )
-
+# Callbacks run synchronously: the heaviest assessment (the allowable depth curves with a
+# superimposed stress) takes about a second, so queueing it through Celery or diskcache
+# bought nothing and pulled in a pickle based cache that has no patched version.
 app = dash.Dash(
     __name__,
     use_pages=True,
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1, maximum-scale=1"}],
-    background_callback_manager=background_callback_manager
 )
 
 _NAVBAR_COLOR_DARK = '#1e293b'
