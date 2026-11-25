@@ -13,6 +13,7 @@ from src.utils.graphing import defect_plots, pipe_plots
 from src.utils.assessment import build_pipe
 from src.utils.report import build_report, filename, render_markdown
 from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
+from src.utils.units import format_pressure, from_bar, to_bar
 
 dash.register_page(__name__)
 
@@ -234,6 +235,7 @@ def layout():
                 className='no-print'
             ),
             dcc.Store(id='report-store', storage_type='memory'),
+            dcc.Store(id='pressure-unit-previous', data='bar'),
             dcc.Download(id='download-markdown'),
             dcc.Download(id='download-json'),
         ],
@@ -290,7 +292,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     State('input-defect-depth', 'value'),
     State('unit-defect-depth', 'children'),
     State('input-defect-elevation', 'value'),
-    State('input-design-pressure', 'value'),
+    Input('input-design-pressure', 'value'),
     State('input-design-temp', 'value'),
     State('input-incidental-ratio', 'value'),
     State('input-accuracy', 'value'),
@@ -401,7 +403,7 @@ def _trace_table(rows):
     ], bordered=False, striped=True, size='sm', className='mb-0')
 
 
-def build_calculation_trace(report):
+def build_calculation_trace(report, pressure_unit='bar'):
     """
     The intermediate values behind a verdict, each with the clause it comes from.
 
@@ -424,7 +426,7 @@ def build_calculation_trace(report):
         ('Wall thickness, t', f"{pipe_['wall_thickness_mm']:.2f} mm", '§2.1'),
         ('SMTS', f"{material['smts_mpa']:.1f} N/mm²", '§2.6'),
         ('Design temperature', f"{material['design_temperature_c']:.0f} °C", 'Figure 2-3'),
-        ('Design pressure, p_d', f"{design['design_pressure_bar']:.1f} bar", '§1.13'),
+        ('Design pressure, p_d', f"{from_bar(design['design_pressure_bar'], pressure_unit):.2f} {pressure_unit}", '§1.13'),
         ('Incidental/design ratio, γinc', f"{design['incidental_to_design_ratio']:.2f}", '§3.7.2.2'),
         ('De-rating, f_u,temp', f"{material['de_rating_mpa']:.1f} N/mm²", 'Figure 2-3'),
         ('Tensile strength, f_u', f"{material['f_u_mpa']:.2f} N/mm²", 'Table 2-1'),
@@ -434,19 +436,19 @@ def build_calculation_trace(report):
         ('Partial safety factor, γd', f"{assessment['gamma_d']:.4f}", 'Tables 3-7, 3-8'),
         ('Fractile value, εd', f"{assessment['epsilon_d']:.4f}", 'Tables 3-7, 3-8'),
         ('Usage factor, ξ', f"{assessment['xi']:.2f}", 'Table 3-10'),
-        ('Incidental pressure, p_inc', f"{environment['incidental_pressure_mpa']:.3f} MPa",
+        ('Incidental pressure, p_inc', format_pressure(environment['incidental_pressure_mpa'], pressure_unit, 3),
          '§3.7.2.2'),
-        ('External pressure, p_le', f"{environment['external_pressure_mpa']:.3f} MPa", '§3.7.2.2'),
-        ('Effective pressure, p_li − p_le', f"{results['effective_pressure_mpa']:.3f} MPa",
+        ('External pressure, p_le', format_pressure(environment['external_pressure_mpa'], pressure_unit, 3), '§3.7.2.2'),
+        ('Effective pressure, p_li − p_le', format_pressure(results['effective_pressure_mpa'], pressure_unit, 3),
          '§3.7.2.2'),
-        ('Pressure resistance, p_corr', f"{results['pressure_resistance_mpa']:.3f} MPa", '§3.7.3.1'),
+        ('Pressure resistance, p_corr', format_pressure(results['pressure_resistance_mpa'], pressure_unit, 3), '§3.7.3.1'),
     ]
     defects = [
         (f"Defect {index} ({'combined' if defect['combined'] else 'measured'})",
          f"l = {defect['length_mm']:.1f} mm, d/t = {defect['relative_depth']:.4f}, "
          f"(d/t)* = {defect['adjusted_relative_depth']:.4f}, "
          f"Q = {defect['length_correction_factor']:.4f}, "
-         f"p_corr = {defect['pressure_resistance_mpa']:.3f} MPa",
+         f"p_corr = {format_pressure(defect['pressure_resistance_mpa'], pressure_unit, 3)}",
          '§3.7.3.1, §3.8.2')
         for index, defect in enumerate(report['defects'], start=1)
     ]
@@ -460,9 +462,33 @@ def build_calculation_trace(report):
 @callback(
     Output('calculation-trace', 'children'),
     Input('report-store', 'data'),
+    Input('pressure-unit', 'value'),
 )
-def update_calculation_trace(report):
-    return build_calculation_trace(report)
+def update_calculation_trace(report, pressure_unit='bar'):
+    return build_calculation_trace(report, pressure_unit or 'bar')
+
+
+@callback(
+    Output('input-design-pressure', 'value'),
+    Output('pressure-unit-previous', 'data'),
+    Input('pressure-unit', 'value'),
+    State('pressure-unit-previous', 'data'),
+    State('input-design-pressure', 'value'),
+    prevent_initial_call=True,
+)
+def convert_design_pressure(unit, previous_unit, design_pressure):
+    """Converting the entry on a unit change rather than re-reading it.
+
+    Reinterpretation silently changed the physics of an untouched field: an
+    assessment that failed at 150 bar passed when the selector moved to psi and
+    the number was left alone.
+    """
+    unit = unit or 'bar'
+    previous_unit = previous_unit or 'bar'
+    if design_pressure is None or unit == previous_unit:
+        return no_update, unit
+    converted = from_bar(to_bar(float(design_pressure), previous_unit), unit)
+    return float(f'{converted:.6g}'), unit
 
 
 @callback(

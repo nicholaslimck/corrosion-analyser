@@ -111,7 +111,7 @@ class TestUnitCallback:
 class TestCalculationTrace:
     def test_trace_lists_the_factors_with_their_clauses(self):
         report = calculate_pipe_characteristics(*callback_args(pipe_data()))[-1]
-        trace = build_calculation_trace(report)
+        trace = build_calculation_trace(report, 'MPa')
 
         assert len(trace.children) == 2
         rendered = str(trace)
@@ -129,7 +129,7 @@ class TestCalculationTrace:
             'Secondary Defect Depth': _input(0.30, 't'),
             'Secondary Defect Separation': _input(100, 'mm'),
         })))[-1]
-        rendered = str(build_calculation_trace(report))
+        rendered = str(build_calculation_trace(report, 'MPa'))
         assert 'Defect 1 (measured)' in rendered
         assert 'Defect 2 (measured)' in rendered
         assert 'Defect 3 (combined)' in rendered
@@ -137,3 +137,35 @@ class TestCalculationTrace:
     def test_trace_before_an_analysis_prompts_the_user(self):
         trace = update_calculation_trace(None)
         assert 'Run an analysis' in str(trace)
+
+
+class TestUnitConversion:
+    """Changing the pressure unit must convert the entry, not re-read it.
+
+    Reinterpreting the number silently changed the physics of an untouched field:
+    an assessment failing at 150 bar passed once the selector moved to psi.
+    """
+
+    def test_switching_unit_converts_the_entered_pressure(self):
+        from src.pages.defect_analysis import convert_design_pressure
+        from src.utils.units import PSI_PER_BAR
+
+        value, unit = convert_design_pressure('psi', 'bar', 150.0)
+        assert unit == 'psi'
+        assert value == pytest.approx(150.0 * PSI_PER_BAR, abs=0.01)
+
+    def test_round_trip_restores_the_original_pressure(self):
+        from src.pages.defect_analysis import convert_design_pressure
+
+        to_psi, _ = convert_design_pressure('psi', 'bar', 150.0)
+        back_to_bar, unit = convert_design_pressure('bar', 'psi', to_psi)
+        assert unit == 'bar'
+        assert back_to_bar == pytest.approx(150.0, rel=1e-5)
+
+    def test_same_unit_keeps_the_entered_value(self):
+        from dash import no_update
+        from src.pages.defect_analysis import convert_design_pressure
+
+        value, unit = convert_design_pressure('bar', 'bar', 150.0)
+        assert value is no_update
+        assert unit == 'bar'
