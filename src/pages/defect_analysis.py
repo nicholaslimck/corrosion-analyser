@@ -199,6 +199,13 @@ def layout():
 
     graphs_layout = dbc.Row(
         children=[
+            # The verdict leads. This is a pass/fail tool: the answer is the
+            # first thing after the title, not the fourth thing after two
+            # schematics that carry no decision.
+            dbc.Row(
+                dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=10),
+                justify='center'
+            ),
             dbc.Row(
                 dbc.Col(
                     html.Div(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), className='graph-card'),
@@ -217,11 +224,7 @@ def layout():
                 ),
             ], justify='center'),
             dbc.Row(
-                dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=8),
-                justify='center'
-            ),
-            dbc.Row(
-                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=8),
+                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=10),
                 justify='center'
             ),
             dbc.Row(
@@ -237,7 +240,7 @@ def layout():
                                    outline=True, size='sm'),
                         html.Div(id='print-trigger', style={'display': 'none'}),
                     ], className='text-center mt-2'),
-                    xs=12, md=8
+                    xs=12, md=10
                 ),
                 justify='center',
                 className='no-print'
