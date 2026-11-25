@@ -537,6 +537,18 @@ class TestPipe:
                                measurement_timestamp=t0 + days * 86400))
         return pipe
 
+    def test_curve_covers_the_later_measurement_when_it_is_longer(self, valid_config):
+        """Regression: the curve was sized from the primary defect only, so a
+        longer later measurement fell outside the sampled domain and remaining
+        life silently became None."""
+        pipe = self._two_inspection_pipe(valid_config, length_2=1200.0, depth_2=0.30)
+        pipe.add_loading(combined_stress=-50)
+        pipe.analyze()
+
+        limits = pipe.properties.maximum_allowable_defect_depth[0]
+        assert limits['defect_length'].max() >= 1200.0
+        assert pipe.properties.remaining_life is not None
+
     def test_corrosion_rate_from_two_measurements(self, valid_config):
         pipe = self._two_inspection_pipe(valid_config)
         r_corr, r_corr_length = pipe.calculate_corrosion_rate()
