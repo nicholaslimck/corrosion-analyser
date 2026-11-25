@@ -170,8 +170,10 @@ class TestSizingAccuracyDecoupling:
 
 
 class TestMeasurementOrdering:
-    def test_defects_are_ordered_by_timestamp(self):
-        """The form may supply the later inspection first; the pair must be sorted."""
+    def test_defects_keep_axial_order(self):
+        """The form's order is preserved. The §3.8.2 interaction maths reads the
+        axial separation as defects[1].position - defects[0].position, so
+        reordering the pair inverts it."""
         pipe = build_pipe(pipe_data(**{
             'Secondary Defect Length': _input(150, 'mm'),
             'Secondary Defect Depth': _input(0.30, 't'),
@@ -180,8 +182,47 @@ class TestMeasurementOrdering:
         }))
         earlier = datetime.datetime(2024, 1, 1).timestamp()
         later = datetime.datetime(2025, 1, 1).timestamp()
-        assert pipe.defects[0].measurement_timestamp == pytest.approx(earlier)
-        assert pipe.defects[1].measurement_timestamp == pytest.approx(later)
+        assert pipe.defects[0].measurement_timestamp == pytest.approx(later)
+        assert pipe.defects[1].measurement_timestamp == pytest.approx(earlier)
+
+    def test_chronological_pair_orders_by_timestamp(self):
+        pipe = build_pipe(pipe_data(**{
+            'Secondary Defect Length': _input(150, 'mm'),
+            'Secondary Defect Depth': _input(0.30, 't'),
+            'First Date': _input('2025-01-01', 'date'),   # later
+            'Second Date': _input('2024-01-01', 'date'),  # earlier
+        }))
+        earlier, later = pipe._chronological_pair()
+        assert earlier.measurement_timestamp < later.measurement_timestamp
+
+    def test_reversed_dates_do_not_change_the_combined_defect(self):
+        """Regression: ordering the defect list by date inverted the axial
+        separation, so a reversed date range built the combined defect from the
+        wrong span and could flip an acceptable pipeline to unacceptable."""
+        geometry = {
+            'Defect Length': _input(100, 'mm'),
+            'Defect Depth': _input(0.20, 't'),
+            'Secondary Defect Length': _input(100, 'mm'),
+            'Secondary Defect Depth': _input(0.25, 't'),
+            'Secondary Defect Separation': _input(50, 'mm'),
+        }
+        forward = assess(pipe_data(**geometry, **{
+            'First Date': _input('2024-01-01', 'date'),
+            'Second Date': _input('2025-01-01', 'date'),
+        }))
+        reversed_dates = assess(pipe_data(**geometry, **{
+            'First Date': _input('2025-01-01', 'date'),
+            'Second Date': _input('2024-01-01', 'date'),
+        }))
+
+        assert forward.combined_defect is not None
+        assert reversed_dates.combined_defect is not None
+        assert reversed_dates.combined_defect.length == pytest.approx(
+            forward.combined_defect.length)
+        assert reversed_dates.combined_defect.relative_depth == pytest.approx(
+            forward.combined_defect.relative_depth)
+        assert reversed_dates.properties.pressure_resistance == pytest.approx(
+            forward.properties.pressure_resistance)
 
     def test_reversed_dates_still_yield_a_positive_corrosion_rate(self):
         # The growth is attached to the dates, so the later (deeper) measurement is
@@ -231,3 +272,24 @@ class TestAccuracyTypeFallback:
         inputs.pop('Sizing Accuracy Type')
         pipe = build_pipe(inputs)
         assert pipe.factors.inspection_method == 'relative'
+
+
+class TestLegendEncoding:
+    def test_measured_markers_keep_their_palette_colour(self):
+        """Regression: passing marker=None to trace.update() resets the marker that
+        px.scatter built, so the first measured defect lost the pass/fail colour
+        and the square/circle symbol distinction on the adequacy chart."""
+        from src.utils.graphing import defect_plots
+
+        pipe = assess(pipe_data(**{
+            'Secondary Defect Length': _input(150, 'mm'),
+            'Secondary Defect Depth': _input(0.30, 't'),
+        }))
+        fig = defect_plots.generate_defect_depth_plot(pipe, theme='dark')
+
+        measured = [trace for trace in fig.data
+                    if trace.name and trace.name.startswith('Measured Defect')]
+        assert len(measured) == 2
+        for trace in measured:
+            assert trace.marker.color is not None, f'{trace.name} lost its marker colour'
+        assert measured[1].marker.symbol == 'square'
