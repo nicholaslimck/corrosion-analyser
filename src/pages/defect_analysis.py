@@ -376,7 +376,8 @@ def calculate_pipe_characteristics(
         # Input validation and model construction live in src.utils.assessment
         pipe = create_pipe(pipe_data)
 
-        fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme)
+        fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme,
+                                                       pressure_unit=pressure_unit)
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe, theme=theme)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe, theme=theme)
 
