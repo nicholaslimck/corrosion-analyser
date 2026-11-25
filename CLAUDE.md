@@ -53,8 +53,8 @@ User input → Validate → Create model objects (Pipe, Defect, Environment, Loa
 
 ### Caching & Async
 
-- Development: `DiskcacheManager` for background callbacks
-- Production: Redis + Celery (when `REDIS_URL` env var is set)
+- None: callbacks run synchronously (the analyse path takes ~1 s). No cache or
+  queue is configured, and `REDIS_URL`/`diskcache`/Celery are not dependencies.
 - Docker detection via `DOCKER` env var in `src/utils/__init__.py`
 
 ## Testing

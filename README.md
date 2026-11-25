@@ -45,7 +45,6 @@ poetry run pytest --cov=src --cov-report=term-missing
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LOG_LEVEL` | Logging level | `INFO` (Docker), `DEBUG` (local) |
-| `REDIS_URL` | Redis URL for Celery/caching in production | Not set (uses local diskcache) |
 | `DOCKER` | Set to `true` when running in Docker | Not set |
 
 ### Run with Docker
