@@ -1,7 +1,7 @@
 # Builder image
 FROM python:3.11 AS builder
 
-RUN pip install poetry==1.8.2
+RUN pip install poetry==2.4.1
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -20,7 +20,8 @@ FROM python:3.11-slim AS runtime
 RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 
 ENV VIRTUAL_ENV=/app/.venv \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -28,8 +29,7 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 COPY src ./src
 
-RUN mkdir -p /tmp/corrosion-analyser-cache /tmp/corrosion-analyser-flask-cache \
-    && chown -R appuser:appuser /app /tmp/corrosion-analyser-cache /tmp/corrosion-analyser-flask-cache
+RUN chown -R appuser:appuser /app
 
 USER appuser
 ENV DOCKER=true

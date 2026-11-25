@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import pytest
 
 from src.utils.models.pipe import Pipe, PipeConfig, Loading, DesignLimits
@@ -177,6 +178,27 @@ class TestDefect:
     def test_relative_depth_out_of_range_raises(self):
         with pytest.raises(ValueError, match="between 0 and 1"):
             Defect(length=200, relative_depth=1.5)
+
+    def test_measured_depth_above_85_percent_raises(self):
+        """DNVGL-RP-F101 3.7.2.1: measured depth shall not exceed 85% of t."""
+        with pytest.raises(ValueError, match="85% of the wall thickness|exceeds the maximum"):
+            Defect(length=200, relative_depth=0.9)
+
+    def test_measured_depth_above_85_percent_from_absolute_depth_raises(self):
+        factors = Factors(
+            safety_class='medium',
+            inspection_method='absolute',
+            measurement_accuracy=0.5,
+            confidence_level=0.8,
+            wall_thickness=19.1
+        )
+        defect = Defect(length=200, depth=17.0, factors=factors)  # 17.0 / 19.1 = 0.89
+        with pytest.raises(ValueError, match="exceeds the maximum"):
+            defect.complete_dimensions()
+
+    def test_measured_depth_of_exactly_85_percent_is_allowed(self):
+        defect = Defect(length=200, relative_depth=0.85)
+        assert defect.relative_depth == 0.85
 
     def test_relative_depth_zero_raises(self):
         with pytest.raises(ValueError):
@@ -483,8 +505,152 @@ class TestPipe:
         pipe.add_defect(d1)
         pipe.add_defect(d2)
         pipe.calculate_pressure_resistance()
-        assert len(pipe.defects) == 3  # d1, d2, combined
+        # The combined defect is derived, not measured: it stays out of pipe.defects
+        assert len(pipe.defects) == 2
+        assert pipe.combined_defect is not None
+        assert len(pipe.assessment_defects) == 3
         assert pipe.properties.pressure_resistance > 0
+
+    def test_calculate_pressure_resistance_is_repeatable(self, valid_config):
+        """Re-running the calculation must not accumulate derived defects."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=100, relative_depth=0.25, position=0))
+        pipe.add_defect(Defect(length=100, relative_depth=0.30, position=50))
+        pipe.calculate_pressure_resistance()
+        first = pipe.properties.pressure_resistance
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_pressure_resistance()
+        assert len(pipe.defects) == 2
+        assert len(pipe.assessment_defects) == 3
+        assert pipe.properties.pressure_resistance == pytest.approx(first)
+
+    def _two_inspection_pipe(self, valid_config, length_2=210.0, depth_2=0.26, days=365):
+        """Two measurements of the same defect, `days` apart."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        t0 = 1_600_000_000.0
+        pipe.add_defect(Defect(length=200, width=50, relative_depth=0.25, measurement_timestamp=t0))
+        pipe.add_defect(Defect(length=length_2, width=50, relative_depth=depth_2,
+                               measurement_timestamp=t0 + days * 86400))
+        return pipe
+
+    def test_curve_covers_the_later_measurement_when_it_is_longer(self, valid_config):
+        """Regression: the curve was sized from the primary defect only, so a
+        longer later measurement fell outside the sampled domain and remaining
+        life silently became None."""
+        pipe = self._two_inspection_pipe(valid_config, length_2=1200.0, depth_2=0.30)
+        pipe.add_loading(combined_stress=-50)
+        pipe.analyze()
+
+        limits = pipe.properties.maximum_allowable_defect_depth[0]
+        assert limits['defect_length'].max() >= 1200.0
+        assert pipe.properties.remaining_life is not None
+
+    def test_corrosion_rate_is_order_independent(self, valid_config):
+        """Measurements may be added in either order: the rate is derived from the
+        dates, not from the order the defects were supplied."""
+        pipe = Pipe(config=valid_config)
+        t0 = 1_600_000_000.0
+        # later measurement added first
+        pipe.add_defect(Defect(length=210, relative_depth=0.26,
+                               measurement_timestamp=t0 + 365 * 86400))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25, measurement_timestamp=t0))
+        r_corr, r_corr_length = pipe.calculate_corrosion_rate()
+        assert r_corr == pytest.approx((0.26 - 0.25) / 365)
+        assert r_corr_length == pytest.approx((210 - 200) / 365)
+
+    def test_corrosion_rate_from_two_measurements(self, valid_config):
+        pipe = self._two_inspection_pipe(valid_config)
+        r_corr, r_corr_length = pipe.calculate_corrosion_rate()
+        assert r_corr == pytest.approx((0.26 - 0.25) / 365)
+        assert r_corr_length == pytest.approx((210 - 200) / 365)
+
+    def test_remaining_life_is_finite_and_consistent(self, valid_config):
+        pipe = self._two_inspection_pipe(valid_config)
+        pipe.analyze()
+        life = pipe.properties.remaining_life
+        assert life is not None and life > 0
+
+        # At the reported time the predicted depth must equal the allowable depth
+        # for the predicted length, which is what the root find converged on.
+        r_corr, r_corr_length = pipe.calculate_corrosion_rate()
+        limits = pipe.properties.maximum_allowable_defect_depth[0].sort_values('defect_length')
+        predicted = 0.26 + r_corr * life
+        allowable = np.interp(210 + r_corr_length * life,
+                              limits['defect_length'].to_numpy(float),
+                              limits['defect_relative_depth'].to_numpy(float))
+        assert predicted == pytest.approx(allowable, abs=1e-6)
+
+    def test_remaining_life_handles_fast_length_growth(self, valid_config):
+        """A high length corrosion rate must not stall the calculation."""
+        pipe = self._two_inspection_pipe(valid_config, length_2=600.0, depth_2=0.26)
+        pipe.analyze()
+        assert pipe.properties.remaining_life is not None
+        assert pipe.properties.remaining_life >= 0
+
+    def test_remaining_life_zero_when_already_failed(self, valid_config):
+        pipe = self._two_inspection_pipe(valid_config)
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.properties.pressure_resistance = 1.0
+        pipe.properties.effective_pressure = 10.0
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert pipe.estimate_remaining_life() == 0
+
+    def test_remaining_life_none_when_no_corrosion(self, valid_config):
+        pipe = self._two_inspection_pipe(valid_config, length_2=200.0, depth_2=0.25)
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        assert pipe.estimate_remaining_life() is None
+
+    def test_remaining_life_requires_allowable_depth_curve(self, valid_config):
+        pipe = self._two_inspection_pipe(valid_config)
+        pipe.properties.pressure_resistance = 20.0
+        pipe.properties.effective_pressure = 15.0
+        with pytest.raises(ValueError, match="Maximum allowable defect depth"):
+            pipe.estimate_remaining_life()
+
+    def test_allowable_depth_curve_covers_long_defects_with_loading(self, valid_config):
+        """The curve must extend past the reported defect, not stop at a fixed 1000 mm."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=1200, width=50, relative_depth=0.25))
+        pipe.add_loading(combined_stress=-50)
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        curve = pipe.properties.maximum_allowable_defect_depth[0]
+        assert curve['defect_length'].max() >= 1200
+
+    def test_allowable_depth_curve_is_bounded_without_loading(self, valid_config):
+        """The no-loading curve must not run off to tens of metres of length."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.calculate_pressure_resistance()
+        pipe.calculate_effective_pressure()
+        pipe.calculate_maximum_allowable_defect_depth()
+        curve = pipe.properties.maximum_allowable_defect_depth[0]
+        assert curve['defect_length'].max() <= 1000
+
+    def test_analyze_is_idempotent(self, valid_config):
+        """analyze() must reset derived state rather than append to it."""
+        pipe = Pipe(config=valid_config)
+        pipe.set_environment(Environment(seawater_density=1025, containment_density=200,
+                                         elevation_reference=0, elevation=-100))
+        pipe.add_defect(Defect(length=200, relative_depth=0.25))
+        pipe.analyze()
+        first = pipe.properties.pressure_resistance
+        pipe.analyze()
+        pipe.analyze()
+        assert len(pipe.properties.maximum_allowable_defect_depth) == 1
+        assert pipe.properties.pressure_resistance == pytest.approx(first)
 
     def test_calculate_maximum_allowable_defect_depth_ignores_second_defect(self, valid_config):
         pipe = Pipe(config=valid_config)
@@ -551,16 +717,18 @@ class TestPipe:
         pipe.add_defect(Defect(length=251, relative_depth=0.21, measurement_timestamp=86400))
         pipe.properties.pressure_resistance = 20.0
         pipe.properties.effective_pressure = 15.0
-        # Two-row df: at l_t=300 depth threshold is 0.80 (not yet failed, covers else:break);
-        # at l_t=350 threshold is 0.25 (d_t=1.20 >= 0.25 → failure after 99 steps).
-        # remaining_life = (1.20 - 0.21) / 0.01 = 99 days
+        # Two-row allowable curve. The allowable depth is interpolated along it
+        # (the RP's allowable curves are continuous, and the calculation samples them):
+        #   growth    d(T) = 0.21 + 0.01T,  l(T) = 251 + 1.0T
+        #   allowable f(l) = 0.80 - 0.55 * (l - 300) / 50
+        #   d(T) = f(l(T))  ->  0.21 + 0.01T = 0.80 - 0.011(T - 49)  ->  T = 53.762
         df = pd.DataFrame({
             'defect_length': [300.0, 350.0],
             'defect_relative_depth': [0.80, 0.25],
         })
         pipe.properties.maximum_allowable_defect_depth = [df]
         pipe.estimate_remaining_life()
-        assert pipe.properties.remaining_life == pytest.approx(99.0)
+        assert pipe.properties.remaining_life == pytest.approx(53.762, abs=1e-3)
 
     def test_estimate_remaining_life_zero_corrosion_rate(self, valid_config):
         pipe = Pipe(config=valid_config)

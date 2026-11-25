@@ -29,7 +29,7 @@ The application can be accessed [here](https://corrosion-analyser.onrender.com/)
 
 ### Local Development
 1. Clone the repository and navigate to the project directory
-2. Install Python (>=3.10, <3.12)
+2. Install Python (>=3.10, <3.15)
 3. Install [Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer)
 4. Install the dependencies using `poetry install`
 5. Run the application using `poetry run python -m src.app`
@@ -45,7 +45,6 @@ poetry run pytest --cov=src --cov-report=term-missing
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `LOG_LEVEL` | Logging level | `INFO` (Docker), `DEBUG` (local) |
-| `REDIS_URL` | Redis URL for Celery/caching in production | Not set (uses local diskcache) |
 | `DOCKER` | Set to `true` when running in Docker | Not set |
 
 ### Run with Docker
@@ -67,6 +66,43 @@ docker compose up
 ```
 
 After the container is deployed, open the browser and navigate to [http://localhost:8050](http://localhost:8050)
+
+## Standards compliance
+
+Implemented against DNVGL-RP-F101 *Corroded pipelines* (Edition September 2019):
+
+| Clause | Implementation |
+|--------|----------------|
+| §3.3, Table 3-2, Tables 3-3 to 3-6 | Partial safety factor γm, and standard deviation of the sizing accuracy |
+| Table 3-7, Table 3-8 | Partial safety factor γd and fractile value εd, including the polynomial curve fits |
+| Table 3-10 | Usage factor ξ for longitudinal stress |
+| §3.7.2.1 | Acceptance criteria on defect depth (85% of t) |
+| §3.7.3.1 – §3.7.3.3 | Pressure resistance, maximum allowable defect length, maximum acceptable defect depth |
+| §3.7.4 | Longitudinal defect with superimposed longitudinal compressive stress |
+| §3.8.2 | Interacting defects (approximation, see limitations below) |
+| §2.6, Figure 2-3 | Temperature de-rating of SMTS and SMYS |
+| §2.9.2 | Corrosion rate and remaining life estimation |
+
+The test suite pins the implementation to the standard where the standard publishes
+numbers: the calibrated values of Tables 3-4 to 3-7, the maximum acceptable depths of
+Table 3-11, and the worked examples of Appendix A (Example A.1).
+
+## Known limitations
+
+- **Interacting defects are approximated.** DNVGL-RP-F101 §3.8.2 requires a projection
+  line procedure assessing all combinations of adjacent defects. This tool merges a
+  single pair using the combined length and length-weighted depth of §3.8.2 Steps 7-8.
+  Circumferential projection (`Z = 360√(t/D)` degrees) is not implemented, and the
+  assessment is limited to two defects — a third is rejected with an error rather than
+  silently ignored.
+- **Maximum allowable length curves** are sampled up to `max(1000 mm, 3 × the largest
+  defect length)`; defects longer than the upper bound are not represented.
+- **Temperature de-rating** follows Figure 2-3, which is defined for temperatures above
+  50 °C. Assessments outside 50-200 °C are refused rather than extrapolated.
+- **Measurement method and depth units are coupled.** Entering depth as a fraction of
+  *t* selects relative sizing accuracy; entering mm selects absolute.
+- Part B (allowable stress approach, Sec.4), Appendix C (detailed absolute measurement
+  accuracies) and Appendix D (long axial internal corrosion defects) are not implemented.
 
 ## Project Structure
 ### Logic Flow

@@ -6,6 +6,7 @@
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --unit-text: #cbd5e1;
   --accent: #38bdf8;
   --pass: #4ade80;
   --fail: #ef4444;
@@ -13,6 +14,10 @@
   --pass-border: rgba(74, 222, 128, 0.3);
   --fail-bg: rgba(239, 68, 68, 0.1);
   --fail-border: rgba(239, 68, 68, 0.3);
+  /* The verdict's own text colours: --pass/--fail are fill colours and are too
+     light for 20px text on the tinted alert backgrounds (3.56:1 in dark). */
+  --verdict-pass-text: #4ade80;
+  --verdict-fail-text: #fca5a5;
 }
 
 [data-theme="light"] {
@@ -21,14 +26,17 @@
   --border: #e2e8f0;
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --accent: #0ea5e9;
-  --pass: #16a34a;
-  --fail: #dc2626;
+  --text-muted: #64748b;
+  --unit-text: #475569;
+  --accent: #0369a1;
+  --pass: #15803d;
+  --fail: #b91c1c;
   --pass-bg: rgba(22, 163, 74, 0.1);
   --pass-border: rgba(22, 163, 74, 0.3);
   --fail-bg: rgba(220, 38, 38, 0.1);
   --fail-border: rgba(220, 38, 38, 0.3);
+  --verdict-pass-text: #166534;
+  --verdict-fail-text: #b91c1c;
 }
 
 /* ── Page background ── */
@@ -72,6 +80,13 @@ body {
   color: var(--accent) !important;
 }
 
+/* ── Navbar pressure unit selector ── */
+.navbar-unit-select {
+  width: auto;
+  min-width: 10rem;
+  font-size: 0.85rem;
+}
+
 /* ── Offcanvas sidebar ── */
 .offcanvas {
   background-color: var(--bg-surface) !important;
@@ -96,6 +111,62 @@ body {
 
 [data-theme="light"] .btn-close {
   filter: none;
+}
+
+/* ── Docked input panel ─────────────────────────────────────────────────────
+   The offcanvas is rendered as a body-level sibling of the app container, so
+   it can never be a grid column of the page. Dock it instead: offset the app
+   by the panel width at wide viewports and let the panel own the left rail.
+   Below 1200px it stays an overlay drawer, closed until the user opens it. */
+@media (min-width: 1200px) {
+  body:has(#input_sidebar) #react-entry-point {
+    margin-left: 420px;
+  }
+
+  #input_sidebar {
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  /* Nothing to toggle or close when the panel is permanently docked. */
+  #input_sidebar .btn-close,
+  #input_sidebar_toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  /* In flow above the page title instead of floating over it. */
+  #input_sidebar_toggle {
+    position: static !important;
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* The panel body is the scroll container, so the action footer can pin to its
+   base instead of sitting below 22 controls and off the fold. */
+#input_sidebar .offcanvas-body {
+  overflow-y: auto;
+  padding-bottom: 0;
+}
+
+.analyse-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 14px -6px rgba(2, 6, 23, 0.45);
+}
+
+.analyse-footer .btn {
+  height: 44px;
+}
+
+[data-theme="light"] .analyse-footer {
+  box-shadow: 0 -10px 14px -6px rgba(15, 23, 42, 0.12);
 }
 
 /* ── Accordion ── */
@@ -157,7 +228,7 @@ body {
 .input-group-text {
   background-color: var(--border) !important;
   border-color: var(--border) !important;
-  color: var(--text-muted) !important;
+  color: var(--unit-text) !important;
   font-size: 0.75rem;
   min-width: 2.5rem;
   justify-content: center;
@@ -243,6 +314,90 @@ body {
   background-color: var(--fail-bg) !important;
   border-color: var(--fail-border) !important;
   color: var(--fail) !important;
+}
+
+/* ── Verdict card ──
+   The outcome is carried by an icon and a word, not by colour alone; the
+   number that matters (utilisation against capacity) is the loudest element. */
+.verdict-card {
+  border-width: 1px !important;
+}
+
+.verdict-card.alert-success {
+  color: var(--verdict-pass-text) !important;
+}
+
+.verdict-card.alert-danger {
+  color: var(--verdict-fail-text) !important;
+}
+
+.verdict-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.verdict-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary) !important;
+  margin-bottom: 0.25rem;
+}
+
+.verdict-utilisation {
+  background-color: var(--border) !important;
+}
+
+.verdict-card.alert-success .progress-bar {
+  background-color: var(--pass) !important;
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+/* Light mode's pass colour is a dark green, so the bar label must invert. */
+[data-theme="light"] .verdict-card.alert-success .progress-bar {
+  color: #ffffff !important;
+}
+
+.verdict-card.alert-danger .progress-bar {
+  background-color: #b91c1c !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.verdict-actions {
+  font-size: 0.85rem;
+  color: var(--text-primary) !important;
+}
+
+/* Darker accent in light mode needs light text on primary buttons. */
+[data-theme="light"] .btn-primary {
+  color: #ffffff !important;
+}
+
+/* ...and on outline buttons, whose hover fill is the accent. Without this the
+   hover state painted #0f172a on #0369a1 (3.01:1) — on the Input Parameters
+   toggle, the control the docked layout depends on. */
+[data-theme="light"] .btn-outline-primary:hover,
+[data-theme="light"] .btn-outline-primary:focus-visible,
+[data-theme="light"] .example-selector .form-check-input:checked + .form-check-label {
+  color: #ffffff !important;
+}
+
+/* ── Focus visibility ──
+   Accordion headers defined a focus ring in a token that computed to none, so
+   eight headers looked identical focused and blurred. The brand link relied on
+   the UA outline at 1.30:1 against the navbar. */
+.accordion-button:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+a:focus-visible:not(.nav-link),
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
 }
 
 /* ── Modal ── */
@@ -369,4 +524,85 @@ p, span, div {
 /* ── Image sizing (merged from home.css) ── */
 img[src*="#threeQuarterWidth"] {
   width: 75vw;
+}
+
+/* ── Print / save as PDF ─────────────────────────────────────────────────────
+   A printed assessment is a document: drop the chrome, keep the content, and
+   stop cards and graphs from being split across pages. */
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  /* Printers drop background colours, so the theme variables have to resolve to
+     ink-on-paper here. Forcing only `body` leaves every card body, alert and
+     list item painting near-white text on white paper when the page is in the
+     default dark theme. */
+  :root,
+  [data-theme],
+  body {
+    --bg-base: #ffffff !important;
+    --bg-surface: #ffffff !important;
+    --bg-elevated: #ffffff !important;
+    --text-primary: #111111 !important;
+    --text-secondary: #333333 !important;
+    --text-muted: #555555 !important;
+    --border: #cccccc !important;
+  }
+
+  body,
+  .card,
+  .card-body,
+  .card-header,
+  .list-group-item,
+  .accordion-button,
+  .accordion-body,
+  .alert,
+  p,
+  label,
+  small,
+  span,
+  td,
+  th,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #111111 !important;
+    background-color: transparent !important;
+  }
+
+  .navbar,
+  #input_sidebar,
+  #input_sidebar_toggle,
+  .offcanvas,
+  .offcanvas-backdrop,
+  .no-print,
+  #single_defect_input_error_modal {
+    display: none !important;
+  }
+
+  .container-fluid {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .card,
+  .graph-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cccccc !important;
+  }
+
+  .alert {
+    border: 1px solid #cccccc !important;
+  }
+
+  a[href]::after {
+    content: '';
+  }
 }

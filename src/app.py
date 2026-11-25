@@ -1,16 +1,14 @@
 import sys
 from os import environ
-from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import html, dcc, DiskcacheManager, CeleryManager, Input, Output, State
-from flask_caching import Cache
+from dash import html, dcc, Input, Output, State
 from loguru import logger
 
 from src.utils import IS_DOCKER
+from src.utils.units import PRESSURE_UNITS
 
-launch_uid = uuid4()
 
 DARK_THEME_URL = dbc.themes.DARKLY
 LIGHT_THEME_URL = dbc.themes.FLATLY
@@ -18,36 +16,14 @@ LIGHT_THEME_URL = dbc.themes.FLATLY
 logger.remove()
 logger.add(sys.stdout, level=environ.get('LOG_LEVEL', 'INFO' if IS_DOCKER else 'DEBUG'))
 
-if 'REDIS_URL' in environ:
-    from celery import Celery
-    celery_app = Celery(__name__, broker=environ['REDIS_URL'], backend=environ['REDIS_URL'])
-    background_callback_manager = CeleryManager(
-        celery_app, cache_by=[lambda: launch_uid], expire=60
-    )
-else:
-    import diskcache
-    cache = diskcache.Cache("/tmp/corrosion-analyser-cache")
-    background_callback_manager = DiskcacheManager(
-        cache, cache_by=[lambda: launch_uid], expire=60
-    )
-
+# Callbacks run synchronously: the heaviest assessment (the allowable depth curves with a
+# superimposed stress) takes about a second, so queueing it through Celery or diskcache
+# bought nothing and pulled in a pickle based cache that has no patched version.
 app = dash.Dash(
     __name__,
     use_pages=True,
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1, maximum-scale=1"}],
-    background_callback_manager=background_callback_manager
 )
-
-if 'REDIS_URL' in environ:
-    cache = Cache(app.server, config={
-        'CACHE_TYPE': 'redis',
-        'CACHE_REDIS_URL': environ.get('REDIS_URL', '')
-    })
-else:
-    cache = Cache(app.server, config={
-        'CACHE_TYPE': 'filesystem',
-        'CACHE_DIR': '/tmp/corrosion-analyser-flask-cache'
-    })
 
 _NAVBAR_COLOR_DARK = '#1e293b'
 _NAVBAR_COLOR_LIGHT = '#f8fafc'
@@ -59,8 +35,32 @@ navbar = dbc.NavbarSimple(
             for page in dash.page_registry.values()
         ],
         dbc.NavItem(
-            dbc.Button('🌙', id='theme-toggle', color='link',
-                       className='navbar-theme-toggle', n_clicks=0)
+            [
+                # dbc.Select whitelists its props and rejects aria-label, so the
+                # select is named by a bound, visually hidden label instead.
+                html.Label('Pressure unit', htmlFor='pressure-unit',
+                           className='visually-hidden'),
+                dbc.Select(
+                    id='pressure-unit',
+                    options=[{'label': f'Pressure in {u}', 'value': u} for u in PRESSURE_UNITS],
+                    value='bar',
+                    size='sm',
+                    className='navbar-unit-select',
+                ),
+            ],
+            className='me-2 d-flex align-items-center',
+        ),
+        dbc.NavItem(
+            # html.Button, not dbc.Button: dbc whitelists its props, so it cannot
+            # carry aria-pressed (which the theme callback now outputs).
+            html.Button(
+                '🌙',
+                id='theme-toggle',
+                className='navbar-theme-toggle btn btn-link',
+                n_clicks=0,
+                title='Toggle light and dark theme',
+                **{'aria-label': 'Toggle light and dark theme'},
+            )
         ),
     ],
     id='main-navbar',
@@ -84,6 +84,7 @@ app.layout = html.Div([
     Output('theme-store', 'data'),
     Output('theme-toggle', 'children'),
     Output('main-navbar', 'color'),
+    Output('theme-toggle', 'aria-pressed'),
     Input('theme-toggle', 'n_clicks'),
     Input('theme-store', 'modified_timestamp'),
     State('theme-store', 'data'),
@@ -97,8 +98,23 @@ def manage_theme(n_clicks, ts, current_theme):
     href = LIGHT_THEME_URL if new_theme == 'light' else DARK_THEME_URL
     icon = '☀️' if new_theme == 'dark' else '🌙'
     navbar_color = _NAVBAR_COLOR_DARK if new_theme == 'dark' else _NAVBAR_COLOR_LIGHT
-    return href, new_theme, icon, navbar_color
+    pressed = 'true' if new_theme == 'light' else 'false'
+    return href, new_theme, icon, navbar_color, pressed
 
+
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        // The browser dialog offers "Save as PDF" on every platform; the print
+        // stylesheet turns the page into a document rather than a UI.
+        if (n_clicks) { setTimeout(function() { window.print(); }, 100); }
+        return '';
+    }
+    """,
+    Output('print-trigger', 'children'),
+    Input('print-button', 'n_clicks'),
+    prevent_initial_call=True,
+)
 
 app.clientside_callback(
     """
@@ -118,4 +134,4 @@ if __name__ == '__main__':
         serve(app.server, host="0.0.0.0", port=8050)
     else:
         logger.info('Starting development server')
-        app.run_server(debug=True)
+        app.run(debug=True)

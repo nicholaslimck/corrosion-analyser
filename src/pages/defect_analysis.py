@@ -1,4 +1,5 @@
 import datetime
+import json
 import time
 
 import dash
@@ -9,16 +10,21 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
-from src.utils.layout import center_align_style, build_evaluation_alert
+from src.utils.assessment import build_pipe
+from src.utils.report import build_report, filename, render_markdown
+from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
+from src.utils.units import format_pressure, from_bar, to_bar
 
 dash.register_page(__name__)
 
 
-def _input_row(label: str, input_id: str, default, unit: str, unit_id: str = None) -> dbc.Row:
+def _input_row(label: str, input_id: str, default, unit: str, unit_id: str | None = None,
+               optional: bool = False) -> dbc.Row:
     unit_component = (dbc.InputGroupText(unit, id=unit_id)
                       if unit_id else dbc.InputGroupText(unit))
     return dbc.Row([
-        dbc.Col(html.Label(label, className='col-form-label small'), width=7),
+        dbc.Col(html.Label(f"{label}{' (optional)' if optional else ''}",
+                           htmlFor=input_id, className='col-form-label small'), width=7),
         dbc.Col(
             dbc.InputGroup([
                 dbc.Input(
@@ -48,13 +54,14 @@ def layout():
 
         dbc.AccordionItem([
             _input_row('Length', 'input-defect-length', 200, 'mm'),
-            _input_row('Width', 'input-defect-width', None, 'mm'),
+            _input_row('Width', 'input-defect-width', None, 'mm', optional=True),
             _input_row('Depth', 'input-defect-depth', 0.25, 't', unit_id='unit-defect-depth'),
         ], title='Defect', item_id='defect'),
 
         dbc.AccordionItem([
             _input_row('Elevation', 'input-defect-elevation', -100, 'm'),
-            _input_row('Design Pressure', 'input-design-pressure', 150, 'bar'),
+            _input_row('Design Pressure', 'input-design-pressure', 150, 'bar',
+                       unit_id='unit-design-pressure'),
             _input_row('Design Temperature', 'input-design-temp', 75, '°C'),
             _input_row('Incidental/Design Ratio', 'input-incidental-ratio', 1.1, ''),
             _input_row('Seawater Density', 'input-seawater-density', 1025, 'kg/m³'),
@@ -102,7 +109,8 @@ def layout():
         [
             dbc.Row([
                 dbc.Col([
-                    html.Small("Safety Class", className="text-muted"),
+                    html.Label("Safety Class", htmlFor='single_defect_select_safety_class',
+                               className="col-form-label small"),
                     dbc.Select(
                         id='single_defect_select_safety_class',
                         value='medium',
@@ -110,23 +118,41 @@ def layout():
                             {'label': 'Low', 'value': 'low'},
                             {'label': 'Medium', 'value': 'medium'},
                             {'label': 'High', 'value': 'high'},
+                            {'label': 'Very High', 'value': 'very high'},
                         ],
                         size="sm",
                     ),
                 ]),
                 dbc.Col([
-                    html.Small("Measurement", className="text-muted"),
+                    html.Label("Defect depth unit", htmlFor='single_defect_select_measurement',
+                               className="col-form-label small"),
                     dbc.Select(
                         id='single_defect_select_measurement',
                         value='relative',
                         options=[
-                            {'label': 'Relative', 'value': 'relative'},
-                            {'label': 'Absolute', 'value': 'absolute'},
+                            {'label': 'Fraction of t', 'value': 'relative'},
+                            {'label': 'Millimetre', 'value': 'absolute'},
                         ],
                         size="sm",
                     ),
                 ]),
-            ], className="mb-3"),
+            ], className="mb-2"),
+            dbc.Row(
+                dbc.Col([
+                    html.Label("Sizing accuracy", htmlFor='single_defect_select_accuracy_type',
+                               className="col-form-label small"),
+                    dbc.Select(
+                        id='single_defect_select_accuracy_type',
+                        value='relative',
+                        options=[
+                            {'label': 'Relative (fraction of t)', 'value': 'relative'},
+                            {'label': 'Absolute (mm)', 'value': 'absolute'},
+                        ],
+                        size="sm",
+                    ),
+                ]),
+                className="mb-3",
+            ),
             accordion,
             dbc.Button(
                 "Secondary Defect",
@@ -138,13 +164,16 @@ def layout():
                 n_clicks=0,
             ),
             secondary_inputs,
-            dbc.Button(
-                'Analyse',
-                id='single_defect_table_analyse',
-                className="w-100 mt-2 mb-3",
-                color="primary",
-            ),
             html.Div(id='single_defect_table_analysis'),
+            html.Div(
+                dbc.Button(
+                    'Analyse',
+                    id='single_defect_table_analyse',
+                    className='w-100',
+                    color='primary',
+                ),
+                className='analyse-footer',
+            ),
         ],
         id="input_sidebar",
         title="Input Parameters",
@@ -191,6 +220,32 @@ def layout():
                 dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=8),
                 justify='center'
             ),
+            dbc.Row(
+                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=8),
+                justify='center'
+            ),
+            dbc.Row(
+                dbc.Col(
+                    html.Div([
+                        dbc.Button('Print / Save as PDF', id='print-button', color='secondary',
+                                   outline=True, size='sm', className='me-2',
+                                   title='Prints in the current theme - switch to light first '
+                                         'for a print-friendly copy'),
+                        dbc.Button('Download Markdown', id='download-markdown-button', color='secondary',
+                                   outline=True, size='sm', className='me-2'),
+                        dbc.Button('Download JSON', id='download-json-button', color='secondary',
+                                   outline=True, size='sm'),
+                        html.Div(id='print-trigger', style={'display': 'none'}),
+                    ], className='text-center mt-2'),
+                    xs=12, md=8
+                ),
+                justify='center',
+                className='no-print'
+            ),
+            dcc.Store(id='report-store', storage_type='memory'),
+            dcc.Store(id='pressure-unit-previous', data='bar'),
+            dcc.Download(id='download-markdown'),
+            dcc.Download(id='download-json'),
         ],
         style={"margin-top": "15px", **center_align_style}
     )
@@ -219,87 +274,9 @@ def layout():
 
 
 def create_pipe(pipe_data: dict) -> models.Pipe:
-    diameter = pipe_data['Pipe Outer Diameter']['Value']
-    wall_thickness = pipe_data['Pipe Wall Thickness']['Value']
-    smts = pipe_data['SMTS']['Value']
-    design_pressure = pipe_data['Design Pressure']['Value']
-    design_temperature = pipe_data['Design Temperature']['Value']
-    incidental_to_design_pressure_ratio = pipe_data['Incidental to Design Pressure Ratio']['Value']
-    accuracy = pipe_data['Accuracy']['Value']
-    confidence_level = pipe_data['Confidence Level']['Value']
-    safety_class = pipe_data['Safety Class']['Value']
-
-    measurement_method = "relative" if pipe_data['Defect Depth']['Unit'] == "t" else "absolute"
-    pipe_config = models.PipeConfig(
-        outside_diameter=diameter,
-        wall_thickness=wall_thickness,
-        smts=smts,
-        design_pressure=design_pressure,
-        design_temperature=design_temperature,
-        incidental_to_design_pressure_ratio=incidental_to_design_pressure_ratio,
-        accuracy=accuracy,
-        confidence_level=confidence_level,
-        safety_class=safety_class,
-        measurement_method=measurement_method,
-    )
-
-    defect_depth_unit = pipe_data['Defect Depth']['Unit']
-    defect_config = {
-        'length': pipe_data['Defect Length']['Value'],
-        'width': pipe_data['Defect Width']['Value'],
-        ("relative_depth" if defect_depth_unit == "t" else "depth"): pipe_data['Defect Depth']['Value'],
-    }
-
-    sec_depth_unit = pipe_data['Secondary Defect Depth']['Unit']
-    secondary_defect_config = {
-        'length': pipe_data['Secondary Defect Length']['Value'],
-        'width': pipe_data['Secondary Defect Width']['Value'],
-        ("relative_depth" if sec_depth_unit == "t" else "depth"): pipe_data['Secondary Defect Depth']['Value'],
-    }
-
-    if pipe_data['First Date']['Value'] and pipe_data['Second Date']['Value']:
-        first_ts = datetime.datetime.timestamp(
-            datetime.datetime.strptime(pipe_data['First Date']['Value'], '%Y-%m-%d'))
-        second_ts = datetime.datetime.timestamp(
-            datetime.datetime.strptime(pipe_data['Second Date']['Value'], '%Y-%m-%d'))
-        defect_config['measurement_timestamp'] = first_ts
-        secondary_defect_config['measurement_timestamp'] = second_ts
-
-    secondary_defect_separation = pipe_data['Secondary Defect Separation']['Value']
-    if secondary_defect_separation:
-        secondary_defect_config['position'] = secondary_defect_separation
-
-    environment_config = {
-        'seawater_density': pipe_data['Seawater Density']['Value'],
-        'containment_density': pipe_data['Containment Density']['Value'],
-        'elevation_reference': pipe_data['Elevation Reference']['Value'],
-        'elevation': pipe_data['Defect Elevation']['Value'],
-    }
-
-    combined_stress = pipe_data['Combined Stress']['Value']
-    if combined_stress:
-        if secondary_defect_separation:
-            raise ValueError('Interacting defects are not supported with superimposed stress.')
-        if not pipe_data['Defect Width']['Value']:
-            raise ValueError('Defect Width is required for stress calculations.')
-        loading_config = {'combined_stress': -abs(float(combined_stress))}
-    else:
-        loading_config = None
-
-    pipe = models.Pipe(config=pipe_config)
-    defect = models.Defect(**defect_config)
-    environment = models.Environment(**environment_config)
-
-    pipe.add_defect(defect)
-    if secondary_defect_config['length']:
-        secondary_defect = models.Defect(**secondary_defect_config)
-        pipe.add_defect(secondary_defect)
-
-    if loading_config:
-        pipe.add_loading(**loading_config)
-    pipe.set_environment(environment)
+    """Build the pipe model from the interface inputs and run the assessment."""
+    pipe = build_pipe(pipe_data)
     pipe.analyze()
-
     return pipe
 
 
@@ -311,8 +288,10 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     Output('single_defect_table_evaluation', 'children'),
     Output('single_defect_input_error_modal', 'is_open'),
     Output('single_defect_input_error_modal_body', 'children'),
+    Output('report-store', 'data'),
     Input('single_defect_table_analyse', 'n_clicks'),
     State('single_defect_select_safety_class', 'value'),
+    State('single_defect_select_accuracy_type', 'value'),
     State('input-outer-diameter', 'value'),
     State('input-wall-thickness', 'value'),
     State('input-smts', 'value'),
@@ -321,7 +300,7 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     State('input-defect-depth', 'value'),
     State('unit-defect-depth', 'children'),
     State('input-defect-elevation', 'value'),
-    State('input-design-pressure', 'value'),
+    Input('input-design-pressure', 'value'),
     State('input-design-temp', 'value'),
     State('input-incidental-ratio', 'value'),
     State('input-accuracy', 'value'),
@@ -339,11 +318,13 @@ def create_pipe(pipe_data: dict) -> models.Pipe:
     State('input-sec-separation', 'value'),
     State('single_defect_date_range', 'start_date'),
     State('single_defect_date_range', 'end_date'),
-    State('theme-store', 'data'),
+    Input('theme-store', 'data'),
+    Input('pressure-unit', 'value'),
 )
 def calculate_pipe_characteristics(
         n_clicks,
         safety_class,
+        sizing_accuracy_type,
         outer_diameter, wall_thickness, smts,
         defect_length, defect_width, defect_depth, defect_depth_unit,
         defect_elevation, design_pressure, design_temp, incidental_ratio,
@@ -352,7 +333,7 @@ def calculate_pipe_characteristics(
         axial_stress, bending_stress, combined_stress,
         sec_length, sec_width, sec_depth, sec_depth_unit, sec_separation,
         start_date, end_date,
-        theme,
+        theme, pressure_unit,
 ):
     start_time = time.time()
 
@@ -364,12 +345,13 @@ def calculate_pipe_characteristics(
         'Defect Width': {'Value': defect_width, 'Unit': 'mm'},
         'Defect Depth': {'Value': defect_depth, 'Unit': defect_depth_unit},
         'Defect Elevation': {'Value': defect_elevation, 'Unit': 'm'},
-        'Design Pressure': {'Value': design_pressure, 'Unit': 'bar'},
+        'Design Pressure': {'Value': design_pressure, 'Unit': pressure_unit},
         'Design Temperature': {'Value': design_temp, 'Unit': '°C'},
         'Incidental to Design Pressure Ratio': {'Value': incidental_ratio, 'Unit': ''},
         'Accuracy': {'Value': accuracy, 'Unit': ''},
         'Confidence Level': {'Value': confidence_level, 'Unit': ''},
         'Safety Class': {'Value': safety_class, 'Unit': ''},
+        'Sizing Accuracy Type': {'Value': sizing_accuracy_type, 'Unit': ''},
         'Seawater Density': {'Value': seawater_density, 'Unit': 'kg/m³'},
         'Containment Density': {'Value': containment_density, 'Unit': 'kg/m³'},
         'Elevation Reference': {'Value': elevation_reference, 'Unit': 'm'},
@@ -385,61 +367,194 @@ def calculate_pipe_characteristics(
     }
 
     theme = theme or 'dark'
+    pressure_unit = pressure_unit or 'bar'
     error_encountered = False
     error = ''
-    fig1 = fig2 = fig3 = analysis = evaluation = no_update
+    fig1 = fig2 = fig3 = analysis = evaluation = report = no_update
 
     try:
-        required = {
-            'Outer Diameter': outer_diameter, 'Wall Thickness': wall_thickness,
-            'SMTS': smts, 'Defect Length': defect_length, 'Defect Depth': defect_depth,
-            'Defect Elevation': defect_elevation, 'Design Pressure': design_pressure,
-            'Design Temperature': design_temp, 'Incidental/Design Ratio': incidental_ratio,
-            'Accuracy': accuracy, 'Confidence Level': confidence_level,
-            'Seawater Density': seawater_density, 'Containment Density': containment_density,
-            'Elevation Reference': elevation_reference,
-        }
-        missing = [k for k, v in required.items() if v is None]
-        if missing:
-            raise ValueError(f"Required fields are empty: {', '.join(missing)}")
-
+        # Input validation and model construction live in src.utils.assessment
         pipe = create_pipe(pipe_data)
 
         fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme)
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe, theme=theme)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe, theme=theme)
 
-        result_items = [
-            dbc.ListGroupItem([html.Strong("Effective Pressure: "),
-                               f"{pipe.properties.effective_pressure:.2f} MPa"]),
-            dbc.ListGroupItem([html.Strong("Pressure Resistance: "),
-                               f"{pipe.properties.pressure_resistance:.2f} MPa"]),
-        ]
-        if any(d.position for d in pipe.defects):
-            interaction_text = ("Defect interaction found" if len(pipe.defects) == 3
-                                else "No defect interaction found")
-            result_items.append(dbc.ListGroupItem([html.Strong("Interaction: "), interaction_text]))
-        if pipe.properties.remaining_life is not None:
-            result_items.append(dbc.ListGroupItem(
-                [html.Strong("Remaining Life: "), f"{pipe.properties.remaining_life:.0f} days"]
-            ))
         analysis = dbc.Card([
             dbc.CardHeader("Results"),
-            dbc.ListGroup(result_items, flush=True),
+            dbc.ListGroup(build_result_items(pipe, pressure_unit), flush=True),
         ], className="mt-3 mb-3")
 
-        evaluation = build_evaluation_alert(pipe.properties.effective_pressure, pipe.properties.pressure_resistance)
+        evaluation = build_evaluation_alert(
+            pipe.properties.effective_pressure,
+            pipe.properties.pressure_resistance,
+            pressure_unit,
+            safety_class=pipe.factors.safety_class,
+            design_factor=pipe.factors.gamma_m,
+        )
+        report = build_report(pipe)
         logger.info(f"Single-Defect Scenario loaded | Processing time: {time.time() - start_time:.2f}s")
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         error_encountered = True
         error = str(e)
+        # Clear the stored report. Leaving the previous assessment in place let the
+        # export buttons hand out an older result's numbers after a failed run.
+        report = None
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
         error_encountered = True
         error = "An unexpected error occurred. Please check your inputs and try again."
+        report = None
 
-    return fig1, fig2, fig3, analysis, evaluation, error_encountered, error
+    return fig1, fig2, fig3, analysis, evaluation, error_encountered, error, report
+
+
+def _trace_table(rows):
+    return dbc.Table([
+        html.Thead(html.Tr([html.Th('Quantity'), html.Th('Value'), html.Th('Source')])),
+        html.Tbody([
+            html.Tr([html.Td(quantity), html.Td(value), html.Td(source, className='text-muted')])
+            for quantity, value, source in rows
+        ]),
+    ], bordered=False, striped=True, size='sm', className='mb-0')
+
+
+def build_calculation_trace(report, pressure_unit='bar'):
+    """
+    The intermediate values behind a verdict, each with the clause it comes from.
+
+    The assessment is only as trustworthy as the numbers going into it, so they are
+    shown rather than left implicit: a reader can reproduce the result by hand.
+    """
+    if not report:
+        return html.P('Run an analysis to see the calculation trace.',
+                      className='text-muted small mb-0 mt-2')
+
+    pipe_ = report['pipe']
+    material = report['material']
+    design = report['design']
+    assessment = report['assessment']
+    environment = report['environment']
+    results = report['results']
+
+    inputs = [
+        ('Outside diameter, D', f"{pipe_['outside_diameter_mm']:.1f} mm", '§2.1'),
+        ('Wall thickness, t', f"{pipe_['wall_thickness_mm']:.2f} mm", '§2.1'),
+        ('SMTS', f"{material['smts_mpa']:.1f} N/mm²", '§2.6'),
+        ('Design temperature', f"{material['design_temperature_c']:.0f} °C", 'Figure 2-3'),
+        ('Design pressure, p_d', f"{from_bar(design['design_pressure_bar'], pressure_unit):.2f} {pressure_unit}", '§1.13'),
+        ('Incidental/design ratio, γinc', f"{design['incidental_to_design_ratio']:.2f}", '§3.7.2.2'),
+        ('De-rating, f_u,temp', f"{material['de_rating_mpa']:.1f} N/mm²", 'Figure 2-3'),
+        ('Tensile strength, f_u', f"{material['f_u_mpa']:.2f} N/mm²", 'Table 2-1'),
+        ('Safety class', str(assessment['safety_class']).title(), '§3.3'),
+        ('Inspection method', assessment['measurement_method'], '§3.3'),
+        ('Sizing accuracy',
+         f"{assessment['measurement_accuracy']:g} "
+         f"({'fraction of t' if assessment['measurement_method'] == 'relative' else 'mm'})",
+         '§3.3'),
+        ('Confidence level', f"{assessment['confidence_level']:.0%}", 'Table 3-3'),
+        ('StD[d/t], σd', f"{assessment['standard_deviation']:.4f}", 'Tables 3-3 to 3-6'),
+        ('Partial safety factor, γm', f"{assessment['gamma_m']:.2f}", 'Table 3-2'),
+        ('Partial safety factor, γd', f"{assessment['gamma_d']:.4f}", 'Tables 3-7, 3-8'),
+        ('Fractile value, εd', f"{assessment['epsilon_d']:.4f}", 'Tables 3-7, 3-8'),
+        ('Usage factor, ξ', f"{assessment['xi']:.2f}", 'Table 3-10'),
+        ('Incidental pressure, p_inc', format_pressure(environment['incidental_pressure_mpa'], pressure_unit, 3),
+         '§3.7.2.2'),
+        ('External pressure, p_le', format_pressure(environment['external_pressure_mpa'], pressure_unit, 3), '§3.7.2.2'),
+        ('Effective pressure, p_li − p_le', format_pressure(results['effective_pressure_mpa'], pressure_unit, 3),
+         '§3.7.2.2'),
+        ('Pressure resistance, p_corr', format_pressure(results['pressure_resistance_mpa'], pressure_unit, 3), '§3.7.3.1'),
+    ]
+    defects = [
+        (f"Defect {index} ({'combined' if defect['combined'] else 'measured'})",
+         f"l = {defect['length_mm']:.1f} mm, d/t = {defect['relative_depth']:.4f}, "
+         f"(d/t)* = {defect['adjusted_relative_depth']:.4f}, "
+         f"Q = {defect['length_correction_factor']:.4f}, "
+         f"p_corr = {format_pressure(defect['pressure_resistance_mpa'], pressure_unit, 3)}",
+         '§3.7.3.1, §3.8.2')
+        for index, defect in enumerate(report['defects'], start=1)
+    ]
+
+    return dbc.Accordion([
+        dbc.AccordionItem(_trace_table(inputs), title='Inputs and partial safety factors'),
+        dbc.AccordionItem(_trace_table(defects), title='Defect geometry and capacity'),
+    ], start_collapsed=True, className='mt-3 small text-start')
+
+
+@callback(
+    Output('calculation-trace', 'children'),
+    Input('report-store', 'data'),
+    Input('pressure-unit', 'value'),
+)
+def update_calculation_trace(report, pressure_unit='bar'):
+    return build_calculation_trace(report, pressure_unit or 'bar')
+
+
+@callback(
+    Output('input-design-pressure', 'value'),
+    Output('pressure-unit-previous', 'data'),
+    Input('pressure-unit', 'value'),
+    State('pressure-unit-previous', 'data'),
+    State('input-design-pressure', 'value'),
+    prevent_initial_call=True,
+)
+def convert_design_pressure(unit, previous_unit, design_pressure):
+    """Converting the entry on a unit change rather than re-reading it.
+
+    Reinterpretation silently changed the physics of an untouched field: an
+    assessment that failed at 150 bar passed when the selector moved to psi and
+    the number was left alone.
+    """
+    unit = unit or 'bar'
+    previous_unit = previous_unit or 'bar'
+    if design_pressure is None or unit == previous_unit:
+        return no_update, unit
+    converted = from_bar(to_bar(float(design_pressure), previous_unit), unit)
+    return float(f'{converted:.6g}'), unit
+
+
+@callback(
+    Output('download-markdown-button', 'disabled'),
+    Output('download-json-button', 'disabled'),
+    Input('report-store', 'data'),
+)
+def toggle_export_buttons(report):
+    """Export only means something while there is a current assessment to export."""
+    disabled = report is None
+    return disabled, disabled
+
+
+@callback(
+    Output('download-markdown', 'data'),
+    Input('download-markdown-button', 'n_clicks'),
+    State('report-store', 'data'),
+    prevent_initial_call=True,
+)
+def download_markdown(n_clicks, report):
+    if not n_clicks or not report:
+        return no_update
+    return dcc.send_string(render_markdown(report), filename(report, 'md'))
+
+
+@callback(
+    Output('download-json', 'data'),
+    Input('download-json-button', 'n_clicks'),
+    State('report-store', 'data'),
+    prevent_initial_call=True,
+)
+def download_json(n_clicks, report):
+    if not n_clicks or not report:
+        return no_update
+    return dcc.send_string(json.dumps(report, indent=2), filename(report, 'json'))
+
+
+@callback(
+    Output('unit-design-pressure', 'children'),
+    Input('pressure-unit', 'value'),
+)
+def update_pressure_unit_label(unit: str):
+    return unit or 'bar'
 
 
 @callback(
@@ -447,12 +562,18 @@ def calculate_pipe_characteristics(
     Output('unit-sec-defect-depth', 'children'),
     Output('unit-accuracy', 'children'),
     Input('single_defect_select_measurement', 'value'),
+    Input('single_defect_select_accuracy_type', 'value'),
     prevent_initial_call=True,
 )
-def update_measurement_units(measurement: str):
-    if measurement == 'relative':
-        return 't', 't', ''
-    return 'mm', 'mm', 'mm'
+def update_input_units(depth_unit: str, accuracy_type: str):
+    """
+    Depth and sizing accuracy units are independent choices: the standard pairs
+    relative or absolute accuracy with either depth representation (3.3).
+    """
+    depth_label = 't' if depth_unit == 'relative' else 'mm'
+    # A blank suffix made "0.1" look like 0.1 mm when it means 10% of t.
+    accuracy_label = 'fraction of t' if accuracy_type == 'relative' else 'mm'
+    return depth_label, depth_label, accuracy_label
 
 
 @callback(

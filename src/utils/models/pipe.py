@@ -1,9 +1,9 @@
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 from loguru import logger
+from scipy.optimize import brentq
 
 from src.utils.calculations.defect_calculations import (calculate_max_defect_depth_longitudinal_with_stress,
                                                         calculate_maximum_defect_length, verify_interaction)
@@ -14,6 +14,12 @@ from .defect import Defect
 from .factors import Factors
 
 _SECONDS_PER_DAY = 86400
+
+# The allowable depth curves are sampled over a multiple of the largest defect length,
+# so the reported defect always falls inside the curve, and never over less than 1 m.
+_MINIMUM_CURVE_LENGTH = 1000.0   # mm
+_CURVE_LENGTH_FACTOR = 3.0
+_CURVE_SAMPLES = 2001            # defect length samples in the loading branch
 
 
 @dataclass
@@ -44,6 +50,7 @@ class Loading:
     loading_stress: float = 0
 
     def __post_init__(self):
+        # loading_stress defaults to 0, so a zero value means 'not supplied' here
         if (self.axial_stress or self.bending_stress) and not self.loading_stress:
             self.loading_stress = self.axial_stress + self.bending_stress
 
@@ -92,6 +99,7 @@ class Pipe:
     def __init__(self, config: PipeConfig):
         self.defect = None
         self.defects = []
+        self.combined_defect = None
         self.environment = None
         self.loading = None
         self.properties = Properties()
@@ -125,16 +133,33 @@ class Pipe:
 
     def add_defect(self, defect: Defect):
         logger.info("Adding defect to pipe")
+        self._prepare_defect(defect)
+        if not self.defects:
+            self.defect = defect
+        self.defects.append(defect)
+
+    def _prepare_defect(self, defect: Defect) -> Defect:
+        """Attach factors and derive the dimensions needed by the assessment equations."""
         if not defect.factors:
             defect.factors = self.factors
         defect.complete_dimensions()
         defect.calculate_d_t_adjusted()
         defect.generate_length_correction_factor(d_nominal=self.dimensions.outside_diameter,
                                                  t=self.dimensions.wall_thickness)
+        return defect
 
-        if not self.defects:
-            self.defect = defect
-        self.defects.append(defect)
+    @property
+    def assessment_defects(self) -> list:
+        """
+        Defects included in the assessment: the measured defects, plus the combined
+        defect when the measured defects interact.
+
+        The combined defect is a derived result, not an input, so it is kept out of
+        `defects` and exposed here instead.
+        """
+        if self.combined_defect is None:
+            return list(self.defects)
+        return [*self.defects, self.combined_defect]
 
     def add_loading(self, axial_load: float = None, bending_load: float = None, combined_stress: float = None):
         if (axial_load or bending_load) and not combined_stress:
@@ -158,11 +183,18 @@ class Pipe:
         self.environment.calculate_incidental_pressure(design_limits=self.design_limits)
 
     def analyze(self):
-        """Run all calculations in the required order."""
+        """Run all calculations in the required order.
+
+        Idempotent: derived state from a previous run is discarded first, so calling
+        analyze() again produces the same result rather than accumulating results.
+        """
         if not self.defects:
             raise ValueError("At least one defect must be added before analysis")
         if not self.environment:
             raise ValueError("Environment must be set before analysis")
+
+        self.properties = Properties()
+        self.combined_defect = None
 
         self.calculate_pressure_resistance()
         self.calculate_effective_pressure()
@@ -174,6 +206,8 @@ class Pipe:
     def calculate_pressure_resistance(self):
         logger.info('Calculating pressure resistance')
 
+        self.combined_defect = None
+
         # Interacting Defects
         if any(defect.position for defect in self.defects):
             logger.info('Defect separation detected, checking for interaction')
@@ -183,11 +217,13 @@ class Pipe:
                     pipe_thickness=self.dimensions.wall_thickness
             ):
                 logger.info('Defects are interacting, adding combined defect')
-                combined_defect = Defect(defects=self.defects)
-                self.add_defect(combined_defect)
+                # The combined defect is a derived result; it is kept out of self.defects
+                # so that re-running the calculation cannot append it twice.
+                self.combined_defect = self._prepare_defect(Defect(defects=self.defects))
 
-        for defect in self.defects:
-            if not self.loading:
+        defects = self.assessment_defects
+        for defect in defects:
+            if self.loading is None:
                 p_corr = calculate_pressure_resistance_longitudinal_defect(
                     gamma_m=defect.factors.gamma_m,
                     gamma_d=defect.factors.gamma_d,
@@ -219,7 +255,7 @@ class Pipe:
                 logger.info(f'Pressure Resistance: {p_corr_comp}')
                 defect.pressure_resistance = p_corr_comp
 
-        self.properties.pressure_resistance = min(defect.pressure_resistance for defect in self.defects)
+        self.properties.pressure_resistance = min(defect.pressure_resistance for defect in defects)
 
     def calculate_effective_pressure(self):
         logger.info("Calculating effective pressure")
@@ -233,17 +269,25 @@ class Pipe:
         """
         logger.info("Calculating limits for defect depth and length")
 
-        defects = self.defects.copy()
+        self.properties.maximum_allowable_defect_depth = []
 
-        # Ignore the second defect
-        if len(self.defects) > 1:
-            del defects[1]
+        # A curve is produced for the governing measured defect, and a second one for
+        # the combined defect when the measured defects interact.
+        defects = [self.defects[0]]
+        if self.combined_defect is not None:
+            defects.append(self.combined_defect)
+
+        # The curve's domain has to cover every measurement, not just the primary
+        # one: estimate_remaining_life grows the *latest* defect, which may be the
+        # longer of the two, and a curve that stops short of it yields a silent None.
+        max_defect_length = max(defect.length for defect in (*self.defects, *defects))
+        upper_length = max(_MINIMUM_CURVE_LENGTH, _CURVE_LENGTH_FACTOR * max_defect_length)
 
         for index, defect in enumerate(defects):
             rows = []
             if not self.loading:  # With no loading
                 for relative_depth in np.arange(0, 1, resolution):
-                    if not relative_depth:  # Depth must be greater than 0
+                    if relative_depth <= 0:  # Depth must be greater than 0
                         continue
                     length = calculate_maximum_defect_length(
                         d=self.dimensions.outside_diameter,
@@ -258,7 +302,7 @@ class Pipe:
                         st_dev=defect.factors.standard_deviation
                     )
                     logger.debug(f'Maximum length for relative depth {relative_depth}: {length}')
-                    if all([relative_depth, length]):
+                    if relative_depth > 0 and length is not None and length <= upper_length:
                         rows.append(pd.DataFrame({'defect_length': length, 'defect_relative_depth': relative_depth}, index=[0]))
                 if not rows:
                     logger.warning("No valid defect length found for any depth")
@@ -271,7 +315,9 @@ class Pipe:
                 target_pressure = self.properties.effective_pressure
                 depth_zeroed = False
 
-                for defect_length in np.arange(0, 1000, resolution * 500):
+                # Sampled to cover the defect and its surroundings, at a constant
+                # number of points so the cost does not grow with the extent.
+                for defect_length in np.linspace(0, upper_length, _CURVE_SAMPLES):
                     if not depth_zeroed:
                         defect_relative_depth = calculate_max_defect_depth_longitudinal_with_stress(
                             gamma_m=self.factors.gamma_m,
@@ -304,17 +350,19 @@ class Pipe:
 
     def estimate_remaining_life(self):
         """
-        Estimate the remaining life of the pipe based on the current defect and loading based on 2.9.2
+        Estimate the remaining life of the pipe based on the current defect and loading as per 2.9.2
 
-        d_t: defect depth after time T
-        l_t: defect length after time T
-        T: time
-        r_corr: corrosion rate
-        r_corr_length: corrosion rate for length
-        d_0: initial defect depth
-        l_0: initial defect length
+        The defect grows from the latest inspection as
+            d_T = d_0 + r_corr * T
+            l_T = l_0 + r_corr_length * T
+        and fails the first time its depth reaches the maximum allowable depth for its
+        length, read from the calculated allowable depth curve. The crossing time is
+        found by root finding, so any corrosion rate is handled and the result is
+        continuous in days.
+
         Returns:
-
+            remaining_life: days until the defect reaches the allowable limit, 0 if the
+                pipe has already failed, or None if no failure is predicted
         """
         if len(self.defects) < 2:
             raise ValueError("Two defect measurements required to estimate remaining life")
@@ -322,53 +370,67 @@ class Pipe:
         if self.properties.pressure_resistance < self.properties.effective_pressure:
             logger.info('Pipe has already failed, skipping remaining life calculation')
             self.properties.remaining_life = 0
-            return False
+            return 0
 
-        d_0 = self.defects[1].relative_depth
-        l_0 = self.defects[1].length
-        w_0 = self.defects[1].width
+        if not self.properties.maximum_allowable_defect_depth:
+            raise ValueError("Maximum allowable defect depth must be calculated before remaining life")
+
+        _, latest = self._chronological_pair()
+        d_0 = latest.relative_depth
+        l_0 = latest.length
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
         if r_corr <= 0:
             logger.info('Non-positive corrosion rate, pipe will not fail')
             self.properties.remaining_life = None
-            return
+            return None
 
-        # Find the point where the defect depth and length reach the maximum allowable defect depth/length
-        d_t = d_0
-        l_t = l_0
-        w_t = w_0  # noqa: F841
-        failure = False
-        max_iterations = 1_000_000
-        iteration = 0
-        maximum_allowable_defect_depth = self.properties.maximum_allowable_defect_depth[0]
-        filtered_allowable_depth = maximum_allowable_defect_depth[
-            (maximum_allowable_defect_depth['defect_length'] > l_t) &
-            (maximum_allowable_defect_depth['defect_relative_depth'] > d_t)
-        ]
+        limits = self.properties.maximum_allowable_defect_depth[0].sort_values('defect_length')
+        lengths = limits['defect_length'].to_numpy(dtype=float)
+        depths = limits['defect_relative_depth'].to_numpy(dtype=float)
 
-        while not failure:
-            d_t += r_corr
-            l_t += r_corr_length
-            iteration += 1
+        def depth_margin(time_days):
+            # Positive once the growing defect is deeper than the allowable depth at its length
+            allowable = np.interp(l_0 + r_corr_length * time_days, lengths, depths)
+            return (d_0 + r_corr * time_days) - allowable
 
-            if iteration >= max_iterations:
-                logger.warning('Remaining life iteration limit reached without failure condition')
-                self.properties.remaining_life = None
-                return
+        if depth_margin(0.0) >= 0:
+            logger.info('Defect is already at or beyond the allowable depth')
+            self.properties.remaining_life = 0
+            return 0
 
-            for row in filtered_allowable_depth.itertuples():
-                if math.isclose(l_t, row.defect_length, abs_tol=0.5):
-                    if d_t >= row.defect_relative_depth:
-                        failure = True
-                        break
-                    else:
-                        break
+        # The defect cannot remain acceptable beyond the end of the allowable depth curve
+        if r_corr_length > 0:
+            time_limit = (lengths[-1] - l_0) / r_corr_length
+        else:
+            time_limit = (depths[0] - d_0) / r_corr
+        time_limit = max(float(time_limit), 0.0)
 
-        remaining_life = (d_t - d_0) / r_corr
+        if time_limit <= 0 or depth_margin(time_limit) < 0:
+            logger.info('No failure predicted within the calculated allowable limits')
+            self.properties.remaining_life = None
+            return None
+
+        remaining_life = float(brentq(depth_margin, 0.0, time_limit))
 
         self.properties.remaining_life = remaining_life
+        return remaining_life
+
+    def _chronological_pair(self) -> tuple['Defect', 'Defect']:
+        """Return the two measurements ordered earliest first.
+
+        `defects` is kept in axial order because the §3.8.2 interaction maths
+        derives the separation from position. A corrosion rate, however, is a
+        change measured from the earlier inspection to the later one, so the pair
+        is ordered by timestamp here rather than by reordering the list.
+        Falls back to insertion order when either measurement carries no date.
+        """
+        pair = self.defects[:2]
+        if all(defect.measurement_timestamp is not None for defect in pair):
+            first, second = sorted(pair, key=lambda defect: defect.measurement_timestamp)
+            return first, second
+        return pair[0], pair[1]
 
     def calculate_corrosion_rate(self) -> tuple[float, float]:
         """
@@ -380,22 +442,27 @@ class Pipe:
         if len(self.defects) < 2:
             raise ValueError("Multiple defects required to calculate corrosion rate")
 
-        # Get defect measurements for first defect
-        d_0 = self.defects[0].relative_depth
-        l_0 = self.defects[0].length
-        w_0 = self.defects[0].width
-        ts_0 = self.defects[0].measurement_timestamp
+        earlier, later = self._chronological_pair()
 
-        # Get defect measurements for second defect
-        d_1 = self.defects[1].relative_depth
-        l_1 = self.defects[1].length
-        w_1 = self.defects[1].width
-        ts_1 = self.defects[1].measurement_timestamp
+        d_0 = earlier.relative_depth
+        l_0 = earlier.length
+        w_0 = earlier.width
+        ts_0 = earlier.measurement_timestamp
+
+        d_1 = later.relative_depth
+        l_1 = later.length
+        w_1 = later.width
+        ts_1 = later.measurement_timestamp
 
         d_ts = ts_1 - ts_0
 
         if abs(d_ts) < 1:
             raise ValueError("Timestamps must be different to calculate corrosion rate")
+        if d_ts < 0:
+            raise ValueError(
+                "Defects must be added in chronological order to calculate a corrosion rate: "
+                "the rate is the change in defect size from the earlier inspection to the later"
+            )
 
         r_corr_depth = _SECONDS_PER_DAY * (d_1 - d_0) / d_ts
         r_corr_length = _SECONDS_PER_DAY * (l_1 - l_0) / d_ts

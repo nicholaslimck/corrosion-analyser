@@ -86,11 +86,11 @@ def generate_pipe_cross_section_plot(pipe: models.Pipe, figure_width: int = 400,
 def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 400, theme: str = 'dark') -> go.Figure:
     p = get_palette(theme)
     thickness = pipe.dimensions.wall_thickness
-    if len(pipe.defects) > 1:
-        position_range = (pipe.defects[0].length + pipe.defects[1].length
-                          + pipe.defects[0].position + pipe.defects[1].position)
+    if len(pipe.assessment_defects) > 1:
+        position_range = (pipe.assessment_defects[0].length + pipe.assessment_defects[1].length
+                          + pipe.assessment_defects[0].position + pipe.assessment_defects[1].position)
     else:
-        position_range = pipe.defects[0].length
+        position_range = pipe.assessment_defects[0].length
 
     fig = go.Figure()
 
@@ -101,11 +101,11 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
         opacity=0.3, line=dict(color=PIPE_COLOR, width=1),
     )
 
-    for index, defect in enumerate(pipe.defects):
-        x0 = (position_range * 0.5 + pipe.defects[0].length + defect.position
+    for index, defect in enumerate(pipe.assessment_defects):
+        x0 = (position_range * 0.5 + pipe.assessment_defects[0].length + defect.position
               if index == 1 else position_range * 0.5)
         opacity = 0.3 if index == 2 else 0.7
-        if len(pipe.defects) == 1:
+        if len(pipe.assessment_defects) == 1:
             name = "Measured Defect"
         elif index != 2:
             name = f"Measured Defect {index + 1}"
@@ -118,7 +118,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             x0=x0, y0=pipe.dimensions.wall_thickness - defect.depth,
             x1=x0 + defect.length, y1=pipe.dimensions.wall_thickness,
             opacity=opacity, line=dict(color=DEFECT_COLOR, width=1),
-            name=name, showlegend=len(pipe.defects) > 1,
+            name=name, showlegend=len(pipe.assessment_defects) > 1,
         )
 
     fig.add_annotation(
@@ -127,8 +127,8 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
         showarrow=False, font=dict(size=11, color=p['font_color']),
     )
 
-    for index, defect in enumerate(pipe.defects):
-        x_pos = (position_range * 0.5 + pipe.defects[0].length + defect.position + defect.length
+    for index, defect in enumerate(pipe.assessment_defects):
+        x_pos = (position_range * 0.5 + pipe.assessment_defects[0].length + defect.position + defect.length
                  if index == 1 else position_range * 0.5 + defect.length)
         fig.add_annotation(
             x=x_pos, y=thickness - defect.depth / 2,
@@ -138,7 +138,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             font=dict(size=10, color=DEFECT_COLOR),
         )
 
-    first_defect = pipe.defects[0]
+    first_defect = pipe.assessment_defects[0]
     remaining = thickness - first_defect.depth
     x_mid = position_range * 0.5 + first_defect.length / 2
     fig.add_annotation(

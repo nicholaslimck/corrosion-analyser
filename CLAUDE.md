@@ -53,8 +53,8 @@ User input → Validate → Create model objects (Pipe, Defect, Environment, Loa
 
 ### Caching & Async
 
-- Development: `DiskcacheManager` for background callbacks
-- Production: Redis + Celery (when `REDIS_URL` env var is set)
+- None: callbacks run synchronously (the analyse path takes ~1 s). No cache or
+  queue is configured, and `REDIS_URL`/`diskcache`/Celery are not dependencies.
 - Docker detection via `DOCKER` env var in `src/utils/__init__.py`
 
 ## Testing
@@ -67,8 +67,8 @@ User input → Validate → Create model objects (Pipe, Defect, Environment, Loa
 ## CI/CD
 
 GitHub Actions (`.github/workflows/test-and-deploy.yml`):
-- All branches: flake8 lint + pytest
-- develop/main: Build multi-platform Docker image → push to Docker Hub (`nicholaslimck/corrosion-analyser`)
+- All branches: flake8 lint, pytest, then boot the app and fetch two pages
+- main only: Build multi-platform Docker image → push to Docker Hub (`nicholaslimck/corrosion-analyser`)
 - main only: Deploy to Render via webhook
 
 ## Key Domain Concepts

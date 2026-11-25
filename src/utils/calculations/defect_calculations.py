@@ -1,7 +1,12 @@
 import math
 
 from loguru import logger
+from scipy.optimize import brentq
 from sympy import Symbol, Eq, sqrt, solve, pi
+
+# DNVGL-RP-F101 §3.7.2.1 (p.37): "Measured defects depths shall not exceed 85% of
+# the wall thickness, i.e. minimum remaining wall thickness >= 15% of t".
+MAX_MEASURED_RELATIVE_DEPTH = 0.85
 
 
 def calculate_length_correction_factor(defect_length: float,
@@ -129,38 +134,68 @@ def calculate_max_defect_depth_longitudinal_with_stress(
         xi: float,
         sigma_l: float,
         epsilon_d: float,
-        st_dev: float):
+        st_dev: float) -> float:
     """
     Calculates the maximum defect depth by reversing the pressure resistance calculation from 3.7.4
+
+    Pressure resistance decreases monotonically with defect depth, so the measured depth
+    whose resistance equals the target resistance is bracketed between zero and the 85%
+    acceptance limit and found by root finding on the forward equation. This replaces the
+    explicit symbolic inverse, which had no discriminant guard and returned negative
+    depths for large compressive stresses.
+
     Args:
         gamma_m: Partial Safety Factor for Longitudinal Corrosion Model Projection
         gamma_d: Partial Safety Factor for Corrosion Depth
         pipe_diameter: Nominal pipe diameter (mm)
         pipe_thickness: Nominal pipe wall thickness (mm)
         defect_length: Defect length (mm)
-        defect_width: Defect length (mm)
+        defect_width: Defect width (mm)
         f_u: Tensile strength to be used in design (N/mm^2)
         p_corr_comp: Pressure resistance of a single longitudinal corrosion defect under internal pressure loading with a superimposed compressive load (N/mm^2)
         xi: Usage factor for longitudinal stress
         sigma_l: Combined nominal longitudinal stress (N/mm^2)
-        epsilon_d:
-        st_dev:
+        epsilon_d: Factor for defining a fractile value for corrosion depth
+        st_dev: Standard deviation of the measured defect depth
 
     Returns:
-
+        maximum measured relative defect depth, between 0 and the 85% acceptance limit
     """
-    q = calculate_length_correction_factor(defect_length, pipe_diameter, pipe_thickness)
-    theta = calculate_circumferential_corroded_length_ratio(defect_width, pipe_diameter)
+    def pressure_resistance(measured_depth: float) -> float:
+        # Imported here: pressure_calculations imports this module, so a module level
+        # import would be circular.
+        from src.utils.calculations.pressure_calculations import (
+            calculate_pressure_resistance_longitudinal_defect_w_compressive_load)
+        return calculate_pressure_resistance_longitudinal_defect_w_compressive_load(
+            gamma_m=gamma_m,
+            gamma_d=gamma_d,
+            t_nominal=pipe_thickness,
+            d_nominal=pipe_diameter,
+            defect_length=defect_length,
+            defect_width=defect_width,
+            defect_relative_depth_measured=measured_depth,
+            relative_defect_depth_with_uncertainty=measured_depth + epsilon_d * st_dev,
+            f_u=f_u,
+            sigma_l=sigma_l,
+            phi=xi,
+        )
 
-    # Inverse of pressure resistance equation from Section 3.7.4 — sympy-generated symbolic solution
-    relative_defect_depth = (  # noqa: E501, E122
-                                        -epsilon_d * f_u * gamma_d * gamma_m * pipe_thickness * q * st_dev * theta * xi + epsilon_d * gamma_d * p_corr_comp * pipe_diameter * st_dev * theta * xi / 2 - epsilon_d * gamma_d * p_corr_comp * pipe_thickness * st_dev * theta * xi / 2 + f_u * gamma_d * gamma_m * pipe_thickness * q * xi + f_u * gamma_m * pipe_thickness * q * theta * xi + gamma_d * gamma_m * p_corr_comp * pipe_diameter * q / 4 - gamma_d * gamma_m * p_corr_comp * pipe_thickness * q / 4 + gamma_d * gamma_m * pipe_thickness * q * sigma_l - gamma_d * p_corr_comp * pipe_diameter * xi / 2 + gamma_d * p_corr_comp * pipe_thickness * xi / 2 - p_corr_comp * pipe_diameter * q * theta * xi / 2 + p_corr_comp * pipe_thickness * q * theta * xi / 2 - sqrt(
-                                    16 * epsilon_d ** 2 * f_u ** 2 * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * st_dev ** 2 * theta ** 2 * xi ** 2 - 16 * epsilon_d ** 2 * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * st_dev ** 2 * theta ** 2 * xi ** 2 + 16 * epsilon_d ** 2 * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * st_dev ** 2 * theta ** 2 * xi ** 2 + 4 * epsilon_d ** 2 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter ** 2 * st_dev ** 2 * theta ** 2 * xi ** 2 - 8 * epsilon_d ** 2 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * st_dev ** 2 * theta ** 2 * xi ** 2 + 4 * epsilon_d ** 2 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_thickness ** 2 * st_dev ** 2 * theta ** 2 * xi ** 2 + 32 * epsilon_d * f_u ** 2 * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * st_dev * theta * xi ** 2 - 32 * epsilon_d * f_u ** 2 * gamma_d * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * st_dev * theta ** 2 * xi ** 2 + 8 * epsilon_d * f_u * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * st_dev * theta * xi - 8 * epsilon_d * f_u * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_thickness ** 2 * q ** 2 * st_dev * theta * xi + 32 * epsilon_d * f_u * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * sigma_l * st_dev * theta * xi - 32 * epsilon_d * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * st_dev * theta * xi ** 2 + 32 * epsilon_d * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * st_dev * theta * xi ** 2 + 16 * epsilon_d * f_u * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * st_dev * theta ** 2 * xi ** 2 + 16 * epsilon_d * f_u * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * st_dev * theta ** 2 * xi ** 2 - 16 * epsilon_d * f_u * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q ** 2 * st_dev * theta ** 2 * xi ** 2 - 16 * epsilon_d * f_u * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * st_dev * theta ** 2 * xi ** 2 - 4 * epsilon_d * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_diameter ** 2 * q * st_dev * theta * xi + 8 * epsilon_d * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q * st_dev * theta * xi - 4 * epsilon_d * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_thickness ** 2 * q * st_dev * theta * xi - 16 * epsilon_d * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * sigma_l * st_dev * theta * xi + 16 * epsilon_d * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * sigma_l * st_dev * theta * xi + 8 * epsilon_d * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter ** 2 * st_dev * theta * xi ** 2 - 16 * epsilon_d * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * st_dev * theta * xi ** 2 + 8 * epsilon_d * gamma_d ** 2 * p_corr_comp ** 2 * pipe_thickness ** 2 * st_dev * theta * xi ** 2 - 8 * epsilon_d * gamma_d * p_corr_comp ** 2 * pipe_diameter ** 2 * q * st_dev * theta ** 2 * xi ** 2 + 16 * epsilon_d * gamma_d * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q * st_dev * theta ** 2 * xi ** 2 - 8 * epsilon_d * gamma_d * p_corr_comp ** 2 * pipe_thickness ** 2 * q * st_dev * theta ** 2 * xi ** 2 + 16 * f_u ** 2 * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * xi ** 2 - 32 * f_u ** 2 * gamma_d * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * theta * xi ** 2 + 16 * f_u ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * theta ** 2 * xi ** 2 + 8 * f_u * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * xi - 8 * f_u * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_thickness ** 2 * q ** 2 * xi + 32 * f_u * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * sigma_l * xi - 16 * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * xi ** 2 + 16 * f_u * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * xi ** 2 - 8 * f_u * gamma_d * gamma_m ** 2 * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * theta * xi + 8 * f_u * gamma_d * gamma_m ** 2 * p_corr_comp * pipe_thickness ** 2 * q ** 2 * theta * xi - 32 * f_u * gamma_d * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * sigma_l * theta * xi + 16 * f_u * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * theta * xi ** 2 + 16 * f_u * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * theta * xi ** 2 - 16 * f_u * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q ** 2 * theta * xi ** 2 - 16 * f_u * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * theta * xi ** 2 - 16 * f_u * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * theta ** 2 * xi ** 2 + 16 * f_u * gamma_m * p_corr_comp * pipe_thickness ** 2 * q ** 2 * theta ** 2 * xi ** 2 + gamma_d ** 2 * gamma_m ** 2 * p_corr_comp ** 2 * pipe_diameter ** 2 * q ** 2 - 2 * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q ** 2 + gamma_d ** 2 * gamma_m ** 2 * p_corr_comp ** 2 * pipe_thickness ** 2 * q ** 2 + 8 * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * sigma_l - 8 * gamma_d ** 2 * gamma_m ** 2 * p_corr_comp * pipe_thickness ** 2 * q ** 2 * sigma_l + 16 * gamma_d ** 2 * gamma_m ** 2 * pipe_thickness ** 2 * q ** 2 * sigma_l ** 2 - 4 * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_diameter ** 2 * q * xi + 8 * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q * xi - 4 * gamma_d ** 2 * gamma_m * p_corr_comp ** 2 * pipe_thickness ** 2 * q * xi - 16 * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * sigma_l * xi + 16 * gamma_d ** 2 * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * sigma_l * xi + 4 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter ** 2 * xi ** 2 - 8 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * xi ** 2 + 4 * gamma_d ** 2 * p_corr_comp ** 2 * pipe_thickness ** 2 * xi ** 2 - 4 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_diameter ** 2 * q ** 2 * theta * xi + 8 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_diameter ** 2 * q * theta * xi + 8 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q ** 2 * theta * xi - 16 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q * theta * xi - 4 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_thickness ** 2 * q ** 2 * theta * xi + 8 * gamma_d * gamma_m * p_corr_comp ** 2 * pipe_thickness ** 2 * q * theta * xi - 16 * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q ** 2 * sigma_l * theta * xi + 32 * gamma_d * gamma_m * p_corr_comp * pipe_diameter * pipe_thickness * q * sigma_l * theta * xi + 16 * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q ** 2 * sigma_l * theta * xi - 32 * gamma_d * gamma_m * p_corr_comp * pipe_thickness ** 2 * q * sigma_l * theta * xi - 8 * gamma_d * p_corr_comp ** 2 * pipe_diameter ** 2 * q * theta * xi ** 2 + 16 * gamma_d * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q * theta * xi ** 2 - 8 * gamma_d * p_corr_comp ** 2 * pipe_thickness ** 2 * q * theta * xi ** 2 + 4 * p_corr_comp ** 2 * pipe_diameter ** 2 * q ** 2 * theta ** 2 * xi ** 2 - 8 * p_corr_comp ** 2 * pipe_diameter * pipe_thickness * q ** 2 * theta ** 2 * xi ** 2 + 4 * p_corr_comp ** 2 * pipe_thickness ** 2 * q ** 2 * theta ** 2 * xi ** 2) / 4) / (
-                                        gamma_d * theta * xi * (
-                                            2 * f_u * gamma_m * pipe_thickness * q - p_corr_comp * pipe_diameter + p_corr_comp * pipe_thickness))
-    relative_defect_depth = float(relative_defect_depth)
+    minimum_depth = 1e-9   # a zero depth defect is the limit of the equation, not a solution
+    maximum_depth = MAX_MEASURED_RELATIVE_DEPTH
 
-    return relative_defect_depth
+    if pressure_resistance(minimum_depth) <= p_corr_comp:
+        # Even an uncorroded pipe cannot carry the required pressure at this defect length
+        return 0.0
+    if pressure_resistance(maximum_depth) >= p_corr_comp:
+        # The tolerable depth is beyond the acceptance limit of Section 3.7.2.1
+        return maximum_depth
+
+    return float(brentq(
+        lambda measured_depth: pressure_resistance(measured_depth) - p_corr_comp,
+        minimum_depth,
+        maximum_depth,
+        xtol=1e-10,
+    ))
 
 
 def calculate_maximum_defect_depth(gamma_d, epsilon_d, std_dev):
@@ -175,7 +210,9 @@ def calculate_maximum_defect_depth(gamma_d, epsilon_d, std_dev):
 
     """
     defect_depth = (1 / gamma_d) - epsilon_d * std_dev
-    return defect_depth
+    # A measured depth above 85% of the wall thickness is outside the acceptance
+    # criteria regardless of the calculated capacity, see Section 3.7.2.1
+    return min(defect_depth, MAX_MEASURED_RELATIVE_DEPTH)
 
 
 def calculate_maximum_defect_length(
@@ -210,9 +247,9 @@ def calculate_maximum_defect_length(
     Returns:
 
     """
-    if not d_t_star and not all(value is not None for value in [d_t_meas, epsilon_d, st_dev]):
+    if d_t_star is None and not all(value is not None for value in [d_t_meas, epsilon_d, st_dev]):
         raise ValueError("Must provide a value for d_t_star or (d_t_meas, epsilon_d and st_dev)")
-    elif not d_t_star:
+    elif d_t_star is None:
         d_t_star = calculate_relative_defect_depth_with_inaccuracies(d_t_meas, epsilon_d, st_dev)
     p_0 = gamma_m * (2 * t * f_u) / (d - t)
 
@@ -228,6 +265,16 @@ def calculate_maximum_defect_length(
 
 
 def calculate_combined_length(defects: list):
+    """
+    Total axial length of a combined defect, DNVGL-RP-F101 Section 3.8.2 Step 7:
+    the length of the combined defect includes the spacing between the defects.
+
+    Args:
+        defects: two adjacent defects, ordered by axial position
+
+    Returns:
+        combined_length: total length including spacing (mm)
+    """
     defect_1 = defects[0]
     defect_2 = defects[1]
 
@@ -236,6 +283,17 @@ def calculate_combined_length(defects: list):
 
 
 def calculate_combined_depth(defects: list, measurement_method: str):
+    """
+    Effective depth of a combined defect, DNVGL-RP-F101 Section 3.8.2 Step 8:
+    a rectangular approximation to the corroded area over the total length.
+
+    Args:
+        defects: two adjacent defects, ordered by axial position
+        measurement_method: 'relative' or 'absolute'
+
+    Returns:
+        combined_depth: length weighted depth, relative (d/t) or absolute (mm)
+    """
     defect_1 = defects[0]
     defect_2 = defects[1]
 
@@ -250,9 +308,38 @@ def calculate_combined_depth(defects: list, measurement_method: str):
 
 
 def verify_interaction(defects: list, pipe_diameter, pipe_thickness):
+    """
+    Approximate test for axial interaction between two adjacent defects.
+
+    DNVGL-RP-F101 Section 3.8.2 defines interaction through a projection line
+    procedure: the corroded section is divided into sections of a minimum length of
+    5.0 sqrt(D t) with a minimum overlap of 2.5 sqrt(D t) (Steps 1-2), defects are
+    projected onto axial lines at Z = 360 sqrt(t / D) degrees (Steps 3-4), and the
+    pressure resistance of all combinations of adjacent defects n to m is calculated
+    with the minimum governing the assessment (Steps 6-9).
+
+    This is a two-defect approximation of that procedure: defects are treated as
+    interacting when their combined axial extent, including the separation between
+    them, fits within one minimum section length of 5.0 sqrt(D t). Circumferential
+    projection is not implemented, so all defects are assumed to share a projection
+    line. Only the first two defects are considered - see Known limitations.
+
+    Args:
+        defects: adjacent defects, ordered by axial position
+        pipe_diameter: nominal outside diameter (mm)
+        pipe_thickness: nominal wall thickness (mm)
+
+    Returns:
+        True if the defects should be combined into a single defect
+    """
+    if len(defects) != 2:
+        raise ValueError(
+            f'Interaction is assessed between exactly two defects; {len(defects)} were '
+            f'supplied - see Known limitations in the README'
+        )
     separation = defects[1].position - defects[0].position
-    # DNV-RP-F101 Section 3.7.5: defects interact when combined extent < 5.0*sqrt(D*t)
-    minimum_length = 5.0 * sqrt(pipe_diameter * pipe_thickness)
+    # DNVGL-RP-F101 Section 3.8.2 Step 1: minimum length of a sectioned assessment
+    minimum_length = 5.0 * math.sqrt(pipe_diameter * pipe_thickness)
     if separation + sum([defect.length for defect in defects]) < minimum_length:
         return True
     else:
