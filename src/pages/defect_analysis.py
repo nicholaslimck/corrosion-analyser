@@ -247,6 +247,7 @@ def layout():
             ),
             dcc.Store(id='report-store', storage_type='memory'),
             dcc.Store(id='pressure-unit-previous', data='bar'),
+            dcc.Store(id='depth-unit-previous', data='relative'),
             dcc.Download(id='download-markdown'),
             dcc.Download(id='download-json'),
         ],
@@ -565,19 +566,40 @@ def update_pressure_unit_label(unit: str):
     Output('unit-defect-depth', 'children'),
     Output('unit-sec-defect-depth', 'children'),
     Output('unit-accuracy', 'children'),
+    Output('input-defect-depth', 'value'),
+    Output('depth-unit-previous', 'data'),
     Input('single_defect_select_measurement', 'value'),
     Input('single_defect_select_accuracy_type', 'value'),
+    State('input-defect-depth', 'value'),
+    State('depth-unit-previous', 'data'),
+    State('input-wall-thickness', 'value'),
     prevent_initial_call=True,
 )
-def update_input_units(depth_unit: str, accuracy_type: str):
+def update_input_units(depth_unit: str, accuracy_type: str, depth_value,
+                       previous_depth_unit: str, wall_thickness):
     """
     Depth and sizing accuracy units are independent choices: the standard pairs
     relative or absolute accuracy with either depth representation (3.3).
+
+    Converting the entry on a unit change mirrors convert_design_pressure. A
+    relabel left the digits alone, so 0.25 t became 0.25 mm - a 76x shallower
+    defect - and the assessment re-ran on the new meaning without saying so.
     """
+    depth_unit = depth_unit or 'relative'
+    previous_depth_unit = previous_depth_unit or 'relative'
     depth_label = 't' if depth_unit == 'relative' else 'mm'
     # A blank suffix made "0.1" look like 0.1 mm when it means 10% of t.
     accuracy_label = 'fraction of t' if accuracy_type == 'relative' else 'mm'
-    return depth_label, depth_label, accuracy_label
+
+    converted = no_update
+    thickness = float(wall_thickness) if wall_thickness not in (None, '') else 0.0
+    if (depth_value not in (None, '') and depth_unit != previous_depth_unit
+            and thickness > 0):
+        value = float(depth_value)
+        converted_value = value * thickness if depth_unit == 'absolute' else value / thickness
+        converted = float(f'{converted_value:.6g}')
+
+    return depth_label, depth_label, accuracy_label, converted, depth_unit
 
 
 @callback(
