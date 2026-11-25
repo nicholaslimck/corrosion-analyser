@@ -6,7 +6,7 @@
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --unit-text: #cbd5e1;
+  --text-strong: #cbd5e1;
   --accent: #38bdf8;
   --pass: #4ade80;
   --fail: #ef4444;
@@ -27,7 +27,7 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
-  --unit-text: #475569;
+  --text-strong: #475569;
   --accent: #0369a1;
   --pass: #15803d;
   --fail: #b91c1c;
@@ -67,6 +67,16 @@ body {
 
 .nav-link.active {
   border-bottom: 2px solid var(--accent);
+}
+
+/* Content links inherited a Bootstrap green that never switched themes: the
+   About page rendered #18bc9c on white at 2.41:1 in light mode. */
+a:not(.nav-link):not(.navbar-brand):not(.btn):not(.modebar-btn) {
+  color: var(--accent) !important;
+}
+
+a:not(.nav-link):not(.navbar-brand):not(.btn):not(.modebar-btn):hover {
+  text-decoration: underline;
 }
 
 .navbar-theme-toggle {
@@ -228,7 +238,7 @@ body {
 .input-group-text {
   background-color: var(--border) !important;
   border-color: var(--border) !important;
-  color: var(--unit-text) !important;
+  color: var(--text-strong) !important;
   font-size: 0.75rem;
   min-width: 2.5rem;
   justify-content: center;
@@ -276,7 +286,7 @@ body {
 .card-header {
   background-color: var(--border) !important;
   border-bottom-color: var(--border) !important;
-  color: var(--text-secondary) !important;
+  color: var(--text-strong) !important;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -482,7 +492,7 @@ p, span, div {
 }
 
 .feature-desc {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;
   margin: 0;

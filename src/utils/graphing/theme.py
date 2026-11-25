@@ -15,6 +15,9 @@ _DARK = dict(
     limit_curve_color='#38bdf8',
     marker_pass_color='#38bdf8',
     marker_fail_color='#ef4444',
+    # The defect itself stays #E53E3E, but #E53E3E as *text* over the tinted
+    # fill measured 2.63:1. Labels get their own, theme-appropriate red.
+    defect_text_color='#fca5a5',
 )
 
 _LIGHT = dict(
@@ -26,6 +29,7 @@ _LIGHT = dict(
     limit_curve_color='#0ea5e9',
     marker_pass_color='#0ea5e9',
     marker_fail_color='#dc2626',
+    defect_text_color='#991b1b',
 )
 
 _PALETTES = {'dark': _DARK, 'light': _LIGHT}
