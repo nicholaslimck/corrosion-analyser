@@ -380,13 +380,49 @@ img[src*="#threeQuarterWidth"] {
     margin: 14mm;
   }
 
+  /* Printers drop background colours, so the theme variables have to resolve to
+     ink-on-paper here. Forcing only `body` leaves every card body, alert and
+     list item painting near-white text on white paper when the page is in the
+     default dark theme. */
+  :root,
+  [data-theme],
   body {
-    background: #ffffff !important;
+    --bg-base: #ffffff !important;
+    --bg-surface: #ffffff !important;
+    --bg-elevated: #ffffff !important;
+    --text-primary: #111111 !important;
+    --text-secondary: #333333 !important;
+    --text-muted: #555555 !important;
+    --border: #cccccc !important;
+  }
+
+  body,
+  .card,
+  .card-body,
+  .card-header,
+  .list-group-item,
+  .accordion-button,
+  .accordion-body,
+  .alert,
+  p,
+  label,
+  small,
+  span,
+  td,
+  th,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: #111111 !important;
+    background-color: transparent !important;
   }
 
   .navbar,
   #input_sidebar,
+  #input_sidebar_toggle,
   .offcanvas,
   .offcanvas-backdrop,
   .no-print,

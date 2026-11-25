@@ -68,8 +68,9 @@ class TestAnalyseCallback:
 
         assert error_open is True
         assert 'SMTS' in error
-        assert report is not None  # no_update sentinel, not a report dict
-        assert not isinstance(report, dict)
+        # A failed run must clear the store, otherwise the export buttons hand out
+        # the previous assessment's numbers.
+        assert report is None
 
 
 class TestDownloadCallbacks:

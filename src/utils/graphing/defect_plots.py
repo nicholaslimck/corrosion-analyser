@@ -70,8 +70,10 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
         elif measured_count == 1:
             trace.update(showlegend=True, name='Measured Defect')
         else:
-            trace.update(showlegend=True, name=f'Measured Defect {index + 1}',
-                         marker=dict(symbol='square') if index == 1 else None)
+            updates = {'showlegend': True, 'name': f'Measured Defect {index + 1}'}
+            if index == 1:
+                updates['marker'] = dict(symbol='square')
+            trace.update(**updates)
 
     fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig.update_xaxes(fixedrange=True)

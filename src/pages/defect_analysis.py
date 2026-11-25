@@ -370,12 +370,27 @@ def calculate_pipe_characteristics(
         logger.error(f"Validation error: {e}")
         error_encountered = True
         error = str(e)
+        # Clear the stored report. Leaving the previous assessment in place let the
+        # export buttons hand out an older result's numbers after a failed run.
+        report = None
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
         error_encountered = True
         error = "An unexpected error occurred. Please check your inputs and try again."
+        report = None
 
     return fig1, fig2, fig3, analysis, evaluation, error_encountered, error, report
+
+
+@callback(
+    Output('download-markdown-button', 'disabled'),
+    Output('download-json-button', 'disabled'),
+    Input('report-store', 'data'),
+)
+def toggle_export_buttons(report):
+    """Export only means something while there is a current assessment to export."""
+    disabled = report is None
+    return disabled, disabled
 
 
 @callback(
