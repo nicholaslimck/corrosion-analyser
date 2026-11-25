@@ -6,7 +6,7 @@
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --unit-text: #cbd5e1;
+  --text-strong: #cbd5e1;
   --accent: #38bdf8;
   --pass: #4ade80;
   --fail: #ef4444;
@@ -27,7 +27,7 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
-  --unit-text: #475569;
+  --text-strong: #475569;
   --accent: #0369a1;
   --pass: #15803d;
   --fail: #b91c1c;
@@ -67,6 +67,16 @@ body {
 
 .nav-link.active {
   border-bottom: 2px solid var(--accent);
+}
+
+/* Content links inherited a Bootstrap green that never switched themes: the
+   About page rendered #18bc9c on white at 2.41:1 in light mode. */
+a:not(.nav-link):not(.navbar-brand):not(.btn):not(.modebar-btn) {
+  color: var(--accent) !important;
+}
+
+a:not(.nav-link):not(.navbar-brand):not(.btn):not(.modebar-btn):hover {
+  text-decoration: underline;
 }
 
 .navbar-theme-toggle {
@@ -228,7 +238,7 @@ body {
 .input-group-text {
   background-color: var(--border) !important;
   border-color: var(--border) !important;
-  color: var(--unit-text) !important;
+  color: var(--text-strong) !important;
   font-size: 0.75rem;
   min-width: 2.5rem;
   justify-content: center;
@@ -276,7 +286,7 @@ body {
 .card-header {
   background-color: var(--border) !important;
   border-bottom-color: var(--border) !important;
-  color: var(--text-secondary) !important;
+  color: var(--text-strong) !important;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -342,25 +352,36 @@ body {
   margin-bottom: 0.25rem;
 }
 
-.verdict-utilisation {
-  background-color: var(--border) !important;
+.capacity-bar {
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-.verdict-card.alert-success .progress-bar {
-  background-color: var(--pass) !important;
-  color: #0f172a !important;
-  font-weight: 600;
+.capacity-track {
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background-color: var(--bg-base);
+  overflow: hidden;
 }
 
-/* Light mode's pass colour is a dark green, so the bar label must invert. */
-[data-theme="light"] .verdict-card.alert-success .progress-bar {
-  color: #ffffff !important;
+.capacity-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.2s ease-in-out;
 }
 
-.verdict-card.alert-danger .progress-bar {
-  background-color: #b91c1c !important;
-  color: #ffffff !important;
-  font-weight: 600;
+.verdict-card.alert-danger .capacity-fill {
+  background-color: var(--fail);
+}
+
+.capacity-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary) !important;
 }
 
 .verdict-actions {
@@ -482,7 +503,7 @@ p, span, div {
 }
 
 .feature-desc {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;
   margin: 0;
@@ -529,6 +550,13 @@ img[src*="#threeQuarterWidth"] {
 /* ── Print / save as PDF ─────────────────────────────────────────────────────
    A printed assessment is a document: drop the chrome, keep the content, and
    stop cards and graphs from being split across pages. */
+
+/* ── Print-only record ──
+   The inputs live in a fixed offcanvas, which print hides, so the paper record
+   is rendered separately and revealed only on paper. */
+.print-only {
+  display: none;
+}
 
 @media print {
   @page {
@@ -588,6 +616,60 @@ img[src*="#threeQuarterWidth"] {
   .container-fluid {
     padding: 0 !important;
     max-width: 100% !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-header,
+  .print-section {
+    break-inside: avoid;
+  }
+
+  .print-title {
+    font-size: 16pt;
+    margin: 0 0 4px;
+  }
+
+  .print-meta {
+    font-size: 9pt;
+    color: #444444 !important;
+    margin-bottom: 12px;
+  }
+
+  .print-section-title {
+    font-size: 11pt;
+    margin: 16px 0 6px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-bottom: 10px;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #bbbbbb !important;
+    padding: 4px 7px;
+    text-align: left;
+    color: #111111 !important;
+  }
+
+  .print-table th[scope="row"] {
+    width: 42%;
+    font-weight: 600;
+  }
+
+  /* Print the result tables, not just their headers and chevrons. */
+  .accordion-collapse {
+    display: block !important;
+  }
+
+  .accordion-button::after {
+    display: none !important;
   }
 
   .card,

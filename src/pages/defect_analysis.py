@@ -10,9 +10,11 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
+from src.utils.graphing.theme import GRAPH_CONFIG
 from src.utils.assessment import build_pipe
 from src.utils.report import build_report, filename, render_markdown
 from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
+from src.utils.layout import build_print_summary
 from src.utils.units import format_pressure, from_bar, to_bar
 
 dash.register_page(__name__)
@@ -199,29 +201,37 @@ def layout():
 
     graphs_layout = dbc.Row(
         children=[
+            # Paper only: identity and the inputs the verdict was computed from.
+            html.Div(id='print-summary', className='print-only'),
+            # The verdict leads. This is a pass/fail tool: the answer is the
+            # first thing after the title, not the fourth thing after two
+            # schematics that carry no decision.
+            dbc.Row(
+                dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=10),
+                justify='center'
+            ),
             dbc.Row(
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_table_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, md=10
                 ),
                 justify='center'
             ),
             dbc.Row([
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
             ], justify='center'),
             dbc.Row(
-                dbc.Col(html.Div(id='single_defect_table_evaluation'), xs=12, md=8),
-                justify='center'
-            ),
-            dbc.Row(
-                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=8),
+                dbc.Col(html.Div(id='calculation-trace'), xs=12, md=10),
                 justify='center'
             ),
             dbc.Row(
@@ -229,21 +239,21 @@ def layout():
                     html.Div([
                         dbc.Button('Print / Save as PDF', id='print-button', color='secondary',
                                    outline=True, size='sm', className='me-2',
-                                   title='Prints in the current theme - switch to light first '
-                                         'for a print-friendly copy'),
+                                   title='Print the assessment, or save it as a PDF'),
                         dbc.Button('Download Markdown', id='download-markdown-button', color='secondary',
                                    outline=True, size='sm', className='me-2'),
                         dbc.Button('Download JSON', id='download-json-button', color='secondary',
                                    outline=True, size='sm'),
                         html.Div(id='print-trigger', style={'display': 'none'}),
                     ], className='text-center mt-2'),
-                    xs=12, md=8
+                    xs=12, md=10
                 ),
                 justify='center',
                 className='no-print'
             ),
             dcc.Store(id='report-store', storage_type='memory'),
             dcc.Store(id='pressure-unit-previous', data='bar'),
+            dcc.Store(id='depth-unit-previous', data='relative'),
             dcc.Download(id='download-markdown'),
             dcc.Download(id='download-json'),
         ],
@@ -376,7 +386,8 @@ def calculate_pipe_characteristics(
         # Input validation and model construction live in src.utils.assessment
         pipe = create_pipe(pipe_data)
 
-        fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme)
+        fig1 = defect_plots.generate_defect_depth_plot(pipe, theme=theme,
+                                                       pressure_unit=pressure_unit)
         fig2 = pipe_plots.generate_pipe_cross_section_plot(pipe, theme=theme)
         fig3 = pipe_plots.generate_defect_cross_section_plot(pipe, theme=theme)
 
@@ -492,6 +503,15 @@ def update_calculation_trace(report, pressure_unit='bar'):
 
 
 @callback(
+    Output('print-summary', 'children'),
+    Input('report-store', 'data'),
+)
+def update_print_summary(report):
+    """The paper record, rebuilt from the same report the exports use."""
+    return build_print_summary(report)
+
+
+@callback(
     Output('input-design-pressure', 'value'),
     Output('pressure-unit-previous', 'data'),
     Input('pressure-unit', 'value'),
@@ -561,19 +581,40 @@ def update_pressure_unit_label(unit: str):
     Output('unit-defect-depth', 'children'),
     Output('unit-sec-defect-depth', 'children'),
     Output('unit-accuracy', 'children'),
+    Output('input-defect-depth', 'value'),
+    Output('depth-unit-previous', 'data'),
     Input('single_defect_select_measurement', 'value'),
     Input('single_defect_select_accuracy_type', 'value'),
+    State('input-defect-depth', 'value'),
+    State('depth-unit-previous', 'data'),
+    State('input-wall-thickness', 'value'),
     prevent_initial_call=True,
 )
-def update_input_units(depth_unit: str, accuracy_type: str):
+def update_input_units(depth_unit: str, accuracy_type: str, depth_value,
+                       previous_depth_unit: str, wall_thickness):
     """
     Depth and sizing accuracy units are independent choices: the standard pairs
     relative or absolute accuracy with either depth representation (3.3).
+
+    Converting the entry on a unit change mirrors convert_design_pressure. A
+    relabel left the digits alone, so 0.25 t became 0.25 mm - a 76x shallower
+    defect - and the assessment re-ran on the new meaning without saying so.
     """
+    depth_unit = depth_unit or 'relative'
+    previous_depth_unit = previous_depth_unit or 'relative'
     depth_label = 't' if depth_unit == 'relative' else 'mm'
     # A blank suffix made "0.1" look like 0.1 mm when it means 10% of t.
     accuracy_label = 'fraction of t' if accuracy_type == 'relative' else 'mm'
-    return depth_label, depth_label, accuracy_label
+
+    converted = no_update
+    thickness = float(wall_thickness) if wall_thickness not in (None, '') else 0.0
+    if (depth_value not in (None, '') and depth_unit != previous_depth_unit
+            and thickness > 0):
+        value = float(depth_value)
+        converted_value = value * thickness if depth_unit == 'absolute' else value / thickness
+        converted = float(f'{converted_value:.6g}')
+
+    return depth_label, depth_label, accuracy_label, converted, depth_unit
 
 
 @callback(

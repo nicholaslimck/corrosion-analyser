@@ -4,9 +4,17 @@ import plotly.graph_objects as go
 
 from src.utils import models
 from src.utils.graphing.theme import apply_theme, get_palette
+from src.utils.units import format_pressure
 
 
-def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Figure:
+def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark',
+                               pressure_unit: str = 'bar') -> go.Figure:
+    """The adequacy curve with the measured defect plotted against it.
+
+    ``pressure_unit`` is the unit the rest of the interface is displaying, so the
+    marker label reads in the same units as the verdict. It used to pass the raw
+    megapascal value through, which put 17.17 on a screen saying 171.72 bar.
+    """
     p = get_palette(theme)
 
     fig = px.line(
@@ -39,12 +47,12 @@ def generate_defect_depth_plot(pipe: models.Pipe, theme: str = 'dark') -> go.Fig
         marker_df = pd.DataFrame({
             'defect_length': defect.length,
             'defect_relative_depth': defect.relative_depth,
-            'pressure_resistance': round(defect.pressure_resistance, 2)
+            'resistance_label': format_pressure(defect.pressure_resistance, pressure_unit),
         }, index=[0])
         passes = pipe.properties.effective_pressure <= defect.pressure_resistance
         colour = p['marker_pass_color'] if passes else p['marker_fail_color']
         marker = px.scatter(marker_df, x='defect_length', y='defect_relative_depth',
-                            text='pressure_resistance', color_discrete_sequence=[colour])
+                            text='resistance_label', color_discrete_sequence=[colour])
         fig.add_trace(marker.data[0])
 
     for defect in pipe.assessment_defects:

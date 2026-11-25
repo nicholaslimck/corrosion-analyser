@@ -10,6 +10,7 @@ from src.utils import models
 from src.utils.layout import build_evaluation_alert
 from src.utils.units import format_pressure
 from src.utils.graphing.defect_plots import generate_defect_depth_plot
+from src.utils.graphing.theme import GRAPH_CONFIG
 from src.utils.graphing.pipe_plots import (generate_pipe_cross_section_plot,
                                            generate_defect_cross_section_plot)
 
@@ -39,18 +40,21 @@ def layout():
         dbc.Row([
             dbc.Row(
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='example_defect_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='example_defect_graph', config=GRAPH_CONFIG)),
+                             className='graph-card'),
                     xs=12, md=10
                 ),
                 justify='center'
             ),
             dbc.Row([
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='example_pipe_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='example_pipe_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='example_defect_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='example_defect_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
             ], justify='center'),

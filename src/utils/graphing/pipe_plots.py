@@ -135,7 +135,7 @@ def generate_defect_cross_section_plot(pipe: models.Pipe, figure_width: int = 40
             text=f"{defect.depth:.1f} mm",
             showarrow=True, ax=35, ay=0,
             arrowhead=2, arrowwidth=1.5,
-            font=dict(size=10, color=DEFECT_COLOR),
+            font=dict(size=10, color=p['defect_text_color']),
         )
 
     first_defect = pipe.assessment_defects[0]

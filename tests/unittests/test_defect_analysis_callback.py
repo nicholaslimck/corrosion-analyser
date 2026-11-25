@@ -8,6 +8,7 @@ it cannot reach, including the arity of the multi-output return.
 import json
 
 import pytest
+from dash import no_update
 
 import src.app  # noqa: F401 - instantiates the Dash app so page callbacks can register
 from src.pages.defect_analysis import (
@@ -106,7 +107,32 @@ class TestUnitCallback:
         ('absolute', 'absolute', ('mm', 'mm', 'mm')),
     ])
     def test_depth_and_accuracy_units_are_independent(self, depth_unit, accuracy_type, expected):
-        assert update_input_units(depth_unit, accuracy_type) == expected
+        labels = update_input_units(depth_unit, accuracy_type, 0.25, depth_unit, 19.1)[:3]
+        assert labels == expected
+
+    def test_switching_to_millimetres_converts_the_value(self):
+        # 0.25 t at t = 19.1 mm is 4.775 mm. Relabelling alone made it 0.25 mm.
+        _, _, _, value, unit = update_input_units('absolute', 'relative', 0.25, 'relative', 19.1)
+        assert value == pytest.approx(4.775, rel=1e-6)
+        assert unit == 'absolute'
+
+    def test_switching_back_to_fraction_restores_the_value(self):
+        _, _, _, value, unit = update_input_units('relative', 'relative', 4.775, 'absolute', 19.1)
+        assert value == pytest.approx(0.25, rel=1e-6)
+        assert unit == 'relative'
+
+    def test_round_trip_returns_the_original(self):
+        _, _, _, mm, _ = update_input_units('absolute', 'relative', 0.30, 'relative', 19.1)
+        _, _, _, fraction, _ = update_input_units('relative', 'relative', mm, 'absolute', 19.1)
+        assert fraction == pytest.approx(0.30, rel=1e-6)
+
+    def test_no_conversion_without_a_wall_thickness(self):
+        _, _, _, value, _ = update_input_units('absolute', 'relative', 0.25, 'relative', None)
+        assert value is no_update
+
+    def test_no_conversion_when_the_unit_did_not_change(self):
+        _, _, _, value, _ = update_input_units('absolute', 'relative', 0.25, 'absolute', 19.1)
+        assert value is no_update
 
 
 class TestCalculationTrace:

@@ -37,14 +37,25 @@ def build_evaluation_alert(effective_pressure: float, pressure_resistance: float
     ]
 
     if utilisation is not None:
-        children.append(dbc.Progress(
-            value=min(utilisation * 100, 100),
-            label=(f"{utilisation:.1%} of capacity" if utilisation < 10
-                   else 'over 999% of capacity'),
-            color=colour,
-            className='verdict-utilisation mb-2',
-            style={'height': '1.25rem'},
-        ))
+        # A fill-to-100% bar reads "nearly finished" in every progress bar ever
+        # built; here full means "at the limit". Labelling both ends of the
+        # range keeps the graphic from contradicting the verdict.
+        pct = min(max(utilisation * 100, 0), 100)
+        # A tiny resistance makes the ratio meaningless: 157.5 bar against
+        # 1e-5 MPa is 1,575,000,000%, which is noise, not information.
+        capacity_label = (f"{utilisation:.1%} of capacity" if utilisation < 10
+                          else 'over 999% of capacity')
+        children.append(html.Div([
+            html.Div(
+                html.Div(className='capacity-fill', style={'width': f'{pct:.1f}%'}),
+                className='capacity-track',
+            ),
+            html.Div([
+                html.Span('0'),
+                html.Span(capacity_label),
+                html.Span(f"{format_pressure(pressure_resistance, unit)} limit"),
+            ], className='capacity-scale'),
+        ], className='capacity-bar mb-2'))
 
     children.append(meta(f"Margin: {format_pressure(margin, unit)}"))
 
@@ -98,6 +109,91 @@ def build_result_items(pipe, unit: str = 'bar') -> list:
         items.append(dbc.ListGroupItem(
             [html.Strong("Remaining Life: "), f"{pipe.properties.remaining_life:.0f} days"]))
     return items
+
+
+def _num(value, digits: int = 2, unit: str = '') -> str:
+    return '—' if value is None else f'{value:.{digits}f}{unit}'
+
+
+def build_print_summary(report: dict | None) -> list:
+    """The paper record: what was assessed, with which factors, and the outcome.
+
+    The inputs live in a fixed offcanvas, and print hides it, so the PDF used to
+    carry a verdict with no record of the pipe it belonged to. This renders the
+    same report dictionary the JSON and Markdown exports use, so the paper and
+    the file cannot disagree.
+    """
+    if not report:
+        return []
+
+    assessment = report['assessment']
+    material = report['material']
+    design = report['design']
+    results = report['results']
+    generated = report['generated_at'].replace('T', ' ')
+
+    gamma_m = f"{assessment['gamma_m']:.2f}"
+    gamma_d = f"{assessment['gamma_d']:.4f}"
+    epsilon_d = f"{assessment['epsilon_d']:.4f}"
+    xi = f"{assessment['xi']:.2f}"
+    factors = f'{gamma_m} / {gamma_d} / {epsilon_d} / {xi}'
+
+    def rows(pairs):
+        body = [html.Tr([html.Th(label, scope='row'), html.Td(value)]) for label, value in pairs]
+        return html.Table(html.Tbody(body), className='print-table')
+
+    def section(title, body):
+        return html.Div([html.H3(title, className='print-section-title'), body],
+                        className='print-section')
+
+    identity = html.Div([
+        html.H2('Pipeline Corrosion Assessment', className='print-title mb-1'),
+        html.P(f"{report['standard']} · generated {generated}", className='print-meta mb-0'),
+    ], className='print-header')
+
+    geometry = section('Geometry, material and assessment', rows([
+        ('Outside diameter', _num(report['pipe']['outside_diameter_mm'], 1, ' mm')),
+        ('Wall thickness', _num(report['pipe']['wall_thickness_mm'], 2, ' mm')),
+        ('SMTS', _num(material['smts_mpa'], 1, ' MPa')),
+        ('Design pressure', _num(design['design_pressure_bar'], 1, ' bar')),
+        ('Incidental/design ratio', _num(design['incidental_to_design_ratio'])),
+        ('Safety class', str(assessment['safety_class']).title()),
+        ('Inspection method', str(assessment['measurement_method'])),
+        ('Sizing accuracy', f"{assessment['measurement_accuracy']:g}"),
+        ('Confidence level', f"{assessment['confidence_level']:g}"),
+        ('γm / γd / εd / ξ', factors),
+    ]))
+
+    defect_rows = []
+    for index, defect in enumerate(report['defects'], start=1):
+        defect_rows.append(html.Tr([
+            html.Td('Combined' if defect['combined'] else str(index)),
+            html.Td(_num(defect['length_mm'], 1)),
+            html.Td(_num(defect['width_mm'], 1)),
+            html.Td(_num(defect['depth_mm'], 2)),
+            html.Td(_num(defect['relative_depth'], 4)),
+            html.Td(_num(defect['adjusted_relative_depth'], 4)),
+            html.Td(_num(defect['pressure_resistance_mpa'])),
+        ]))
+
+    headings = ('Defect', 'Length [mm]', 'Width [mm]', 'Depth [mm]',
+                'd/t', '(d/t)*', 'p_corr [MPa]')
+    defect_table = html.Table([
+        html.Thead(html.Tr([html.Th(heading) for heading in headings])),
+        html.Tbody(defect_rows),
+    ], className='print-table')
+    defects = section('Defects', defect_table)
+
+    outcome = section('Results', rows([
+        ('Effective pressure', f"{results['effective_pressure_mpa']:.3f} MPa "
+                               f"({results['effective_pressure_bar']:.2f} bar)"),
+        ('Pressure resistance', f"{results['pressure_resistance_mpa']:.3f} MPa "
+                                f"({results['pressure_resistance_bar']:.2f} bar)"),
+        ('Margin', f"{report['verdict']['pressure_margin_mpa']:+.3f} MPa"),
+        ('Verdict', 'Acceptable' if report['verdict']['acceptable'] else 'Not acceptable'),
+    ]))
+
+    return [identity, geometry, defects, outcome]
 
 
 center_align_style = {

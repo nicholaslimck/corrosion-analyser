@@ -15,6 +15,9 @@ _DARK = dict(
     limit_curve_color='#38bdf8',
     marker_pass_color='#38bdf8',
     marker_fail_color='#ef4444',
+    # The defect itself stays #E53E3E, but #E53E3E as *text* over the tinted
+    # fill measured 2.63:1. Labels get their own, theme-appropriate red.
+    defect_text_color='#fca5a5',
 )
 
 _LIGHT = dict(
@@ -26,9 +29,16 @@ _LIGHT = dict(
     limit_curve_color='#0ea5e9',
     marker_pass_color='#0ea5e9',
     marker_fail_color='#dc2626',
+    defect_text_color='#991b1b',
 )
 
 _PALETTES = {'dark': _DARK, 'light': _LIGHT}
+
+
+# The modebar is Plotly's own toolbar. On these three static illustrations it
+# costs eleven tab stops at 24x22 with a 1.44:1 focus ring, for tools that do
+# nothing here - the assessment is already exported as PDF, Markdown and JSON.
+GRAPH_CONFIG = {'displayModeBar': False, 'displaylogo': False}
 
 
 def get_palette(theme: str = 'dark') -> dict:
