@@ -39,7 +39,8 @@ def build_evaluation_alert(effective_pressure: float, pressure_resistance: float
     if utilisation is not None:
         children.append(dbc.Progress(
             value=min(utilisation * 100, 100),
-            label=f"{utilisation:.1%} of capacity",
+            label=(f"{utilisation:.1%} of capacity" if utilisation < 10
+                   else 'over 999% of capacity'),
             color=colour,
             className='verdict-utilisation mb-2',
             style={'height': '1.25rem'},
@@ -49,16 +50,20 @@ def build_evaluation_alert(effective_pressure: float, pressure_resistance: float
 
     clause = [STANDARD]
     if safety_class:
-        clause.append(f"§2.3 Safety Class {str(safety_class).title()}")
+        clause.append(f"§3.3 Safety Class {str(safety_class).title()}")
     if design_factor is not None:
-        clause.append(f"γm = {design_factor:.2f}")
+        clause.append(f"Table 3-2 γm = {design_factor:.2f}")
     children.append(meta(' · '.join(clause)))
 
+    resistance_text = format_pressure(pressure_resistance, unit)
     if not is_acceptable:
-        if pressure_resistance > 0:
+        # Branch on the value as displayed: anything that renders as 0.00 takes
+        # the acceptance-limits path, because "reduce the pressure below 0.00
+        # bar" is not an instruction anyone can follow.
+        if pressure_resistance > 0 and not resistance_text.startswith('0.00'):
             steps = [
                 f"Reduce the operating pressure below "
-                f"{format_pressure(pressure_resistance, unit)}.",
+                f"{resistance_text}.",
                 "Re-inspect the defect, or re-classify the safety class.",
                 "Repair or replace the affected pipe section.",
             ]

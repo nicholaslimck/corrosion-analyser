@@ -14,6 +14,10 @@
   --pass-border: rgba(74, 222, 128, 0.3);
   --fail-bg: rgba(239, 68, 68, 0.1);
   --fail-border: rgba(239, 68, 68, 0.3);
+  /* The verdict's own text colours: --pass/--fail are fill colours and are too
+     light for 20px text on the tinted alert backgrounds (3.56:1 in dark). */
+  --verdict-pass-text: #4ade80;
+  --verdict-fail-text: #fca5a5;
 }
 
 [data-theme="light"] {
@@ -31,6 +35,8 @@
   --pass-border: rgba(22, 163, 74, 0.3);
   --fail-bg: rgba(220, 38, 38, 0.1);
   --fail-border: rgba(220, 38, 38, 0.3);
+  --verdict-pass-text: #166534;
+  --verdict-fail-text: #b91c1c;
 }
 
 /* ── Page background ── */
@@ -317,6 +323,14 @@ body {
   border-width: 1px !important;
 }
 
+.verdict-card.alert-success {
+  color: var(--verdict-pass-text) !important;
+}
+
+.verdict-card.alert-danger {
+  color: var(--verdict-fail-text) !important;
+}
+
 .verdict-icon {
   font-size: 1.4rem;
   line-height: 1;
@@ -344,7 +358,7 @@ body {
 }
 
 .verdict-card.alert-danger .progress-bar {
-  background-color: var(--fail) !important;
+  background-color: #b91c1c !important;
   color: #ffffff !important;
   font-weight: 600;
 }
@@ -356,6 +370,15 @@ body {
 
 /* Darker accent in light mode needs light text on primary buttons. */
 [data-theme="light"] .btn-primary {
+  color: #ffffff !important;
+}
+
+/* ...and on outline buttons, whose hover fill is the accent. Without this the
+   hover state painted #0f172a on #0369a1 (3.01:1) — on the Input Parameters
+   toggle, the control the docked layout depends on. */
+[data-theme="light"] .btn-outline-primary:hover,
+[data-theme="light"] .btn-outline-primary:focus-visible,
+[data-theme="light"] .example-selector .form-check-input:checked + .form-check-label {
   color: #ffffff !important;
 }
 

@@ -97,3 +97,33 @@ class TestEvaluationAlert:
         text = rendered(build_evaluation_alert(157.5, 0.0, 'bar'))
         assert 'outside the RP-F101 acceptance limits' in text
         assert 'below 0.00 bar' not in text
+
+
+class TestVerdictEdgeCases:
+    """The verdict card is what a reviewer reads to accept or reject a pipeline."""
+
+    def test_tiny_positive_resistance_does_not_advise_a_zero_target(self):
+        from src.utils.layout import build_evaluation_alert
+
+        # 1e-05 MPa is positive but renders as 0.00 bar, so "reduce the pressure
+        # below 0.00 bar" would be unactionable nonsense.
+        rendered = str(build_evaluation_alert(157.5, 1e-05, 'bar'))
+        assert 'below 0.00' not in rendered
+        assert 'outside the RP-F101 acceptance limits' in rendered
+
+    def test_clause_cites_the_partial_safety_factor_clause(self):
+        from src.utils.layout import build_evaluation_alert
+
+        rendered = str(build_evaluation_alert(10.0, 20.0, 'bar',
+                                              safety_class='medium',
+                                              design_factor=0.85))
+        assert '§3.3' in rendered
+        assert 'Table 3-2' in rendered
+        assert '§2.3' not in rendered
+
+    def test_absurd_utilisation_is_not_printed_as_a_ratio(self):
+        from src.utils.layout import build_evaluation_alert
+
+        rendered = str(build_evaluation_alert(157.5, 1e-05, 'bar'))
+        assert '1575000000' not in rendered
+        assert 'over 999% of capacity' in rendered
