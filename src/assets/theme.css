@@ -530,6 +530,13 @@ img[src*="#threeQuarterWidth"] {
    A printed assessment is a document: drop the chrome, keep the content, and
    stop cards and graphs from being split across pages. */
 
+/* ── Print-only record ──
+   The inputs live in a fixed offcanvas, which print hides, so the paper record
+   is rendered separately and revealed only on paper. */
+.print-only {
+  display: none;
+}
+
 @media print {
   @page {
     margin: 14mm;
@@ -588,6 +595,60 @@ img[src*="#threeQuarterWidth"] {
   .container-fluid {
     padding: 0 !important;
     max-width: 100% !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-header,
+  .print-section {
+    break-inside: avoid;
+  }
+
+  .print-title {
+    font-size: 16pt;
+    margin: 0 0 4px;
+  }
+
+  .print-meta {
+    font-size: 9pt;
+    color: #444444 !important;
+    margin-bottom: 12px;
+  }
+
+  .print-section-title {
+    font-size: 11pt;
+    margin: 16px 0 6px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-bottom: 10px;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #bbbbbb !important;
+    padding: 4px 7px;
+    text-align: left;
+    color: #111111 !important;
+  }
+
+  .print-table th[scope="row"] {
+    width: 42%;
+    font-weight: 600;
+  }
+
+  /* Print the result tables, not just their headers and chevrons. */
+  .accordion-collapse {
+    display: block !important;
+  }
+
+  .accordion-button::after {
+    display: none !important;
   }
 
   .card,

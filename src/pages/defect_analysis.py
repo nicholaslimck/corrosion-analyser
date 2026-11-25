@@ -13,6 +13,7 @@ from src.utils.graphing import defect_plots, pipe_plots
 from src.utils.assessment import build_pipe
 from src.utils.report import build_report, filename, render_markdown
 from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
+from src.utils.layout import build_print_summary
 from src.utils.units import format_pressure, from_bar, to_bar
 
 dash.register_page(__name__)
@@ -199,6 +200,8 @@ def layout():
 
     graphs_layout = dbc.Row(
         children=[
+            # Paper only: identity and the inputs the verdict was computed from.
+            html.Div(id='print-summary', className='print-only'),
             # The verdict leads. This is a pass/fail tool: the answer is the
             # first thing after the title, not the fourth thing after two
             # schematics that carry no decision.
@@ -232,8 +235,7 @@ def layout():
                     html.Div([
                         dbc.Button('Print / Save as PDF', id='print-button', color='secondary',
                                    outline=True, size='sm', className='me-2',
-                                   title='Prints in the current theme - switch to light first '
-                                         'for a print-friendly copy'),
+                                   title='Print the assessment, or save it as a PDF'),
                         dbc.Button('Download Markdown', id='download-markdown-button', color='secondary',
                                    outline=True, size='sm', className='me-2'),
                         dbc.Button('Download JSON', id='download-json-button', color='secondary',
@@ -494,6 +496,15 @@ def build_calculation_trace(report, pressure_unit='bar'):
 )
 def update_calculation_trace(report, pressure_unit='bar'):
     return build_calculation_trace(report, pressure_unit or 'bar')
+
+
+@callback(
+    Output('print-summary', 'children'),
+    Input('report-store', 'data'),
+)
+def update_print_summary(report):
+    """The paper record, rebuilt from the same report the exports use."""
+    return build_print_summary(report)
 
 
 @callback(
