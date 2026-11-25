@@ -63,7 +63,16 @@ def build_pipe(pipe_data: dict) -> models.Pipe:
 
     # The sizing accuracy is a property of the inspection, not of the depth unit: either
     # type of accuracy can be quoted with the depth given in mm or as a fraction of t.
-    measurement_method = _value(pipe_data, 'Sizing Accuracy Type', 'relative')
+    #
+    # Callers that predate the split do not supply the accuracy type at all. They used to
+    # get it inferred from the depth unit, so a depth in mm meant absolute accuracy —
+    # defaulting those callers to 'relative' would silently reinterpret their accuracy
+    # (and, above ~0.2 mm, push StD past 0.16 and raise). Keep the legacy inference when
+    # the input is absent; the interface always sends it.
+    accuracy_type = _value(pipe_data, 'Sizing Accuracy Type')
+    if accuracy_type is None:
+        accuracy_type = 'relative' if _unit_of(pipe_data, 'Defect Depth') == 't' else 'absolute'
+    measurement_method = accuracy_type
 
     pipe_config = models.PipeConfig(
         outside_diameter=_value(pipe_data, 'Pipe Outer Diameter'),
@@ -115,11 +124,11 @@ def build_pipe(pipe_data: dict) -> models.Pipe:
     if secondary_defect_config['length']:
         defect_configs.append(secondary_defect_config)
 
-    # The corrosion rate is a change per unit time from the earlier inspection to the
-    # later one, so order the pair by timestamp rather than by the order the form
-    # happened to supply them.
-    if all('measurement_timestamp' in config for config in defect_configs):
-        defect_configs.sort(key=lambda config: config['measurement_timestamp'])
+    # Defects stay in the order the form supplied them, primary first. The §3.8.2
+    # interaction maths takes the axial separation as defects[1].position -
+    # defects[0].position, so reordering this pair inverts the separation and
+    # builds the combined defect from the wrong span. The chronological ordering
+    # that the corrosion rate needs lives in Pipe._chronological_pair() instead.
 
     pipe = models.Pipe(config=pipe_config)
     for config in defect_configs:

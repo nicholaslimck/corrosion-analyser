@@ -115,7 +115,7 @@ def render_markdown(report: dict) -> str:
         '',
         '| Parameter | Value | Clause |',
         '|-----------|-------|--------|',
-        f"| Safety class | {assessment['safety_class']} | §3.2 |",
+        f"| Safety class | {assessment['safety_class']} | §3.3 |",
         f"| Inspection method | {assessment['measurement_method']} | §3.3 |",
         f"| Sizing accuracy | {assessment['measurement_accuracy']:g} "
         f"({'fraction of t' if assessment['measurement_method'] == 'relative' else 'mm'}) | §3.3 |",

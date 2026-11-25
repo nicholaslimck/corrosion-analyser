@@ -1,6 +1,5 @@
 import sys
 from os import environ
-from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
@@ -10,7 +9,6 @@ from loguru import logger
 from src.utils import IS_DOCKER
 from src.utils.units import PRESSURE_UNITS
 
-launch_uid = uuid4()
 
 DARK_THEME_URL = dbc.themes.DARKLY
 LIGHT_THEME_URL = dbc.themes.FLATLY
