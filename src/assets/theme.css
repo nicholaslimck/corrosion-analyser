@@ -352,25 +352,36 @@ a:not(.nav-link):not(.navbar-brand):not(.btn):not(.modebar-btn):hover {
   margin-bottom: 0.25rem;
 }
 
-.verdict-utilisation {
-  background-color: var(--border) !important;
+.capacity-bar {
+  max-width: 520px;
+  margin: 0 auto;
 }
 
-.verdict-card.alert-success .progress-bar {
-  background-color: var(--pass) !important;
-  color: #0f172a !important;
-  font-weight: 600;
+.capacity-track {
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background-color: var(--bg-base);
+  overflow: hidden;
 }
 
-/* Light mode's pass colour is a dark green, so the bar label must invert. */
-[data-theme="light"] .verdict-card.alert-success .progress-bar {
-  color: #ffffff !important;
+.capacity-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.2s ease-in-out;
 }
 
-.verdict-card.alert-danger .progress-bar {
-  background-color: #b91c1c !important;
-  color: #ffffff !important;
-  font-weight: 600;
+.verdict-card.alert-danger .capacity-fill {
+  background-color: var(--fail);
+}
+
+.capacity-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary) !important;
 }
 
 .verdict-actions {

@@ -37,14 +37,25 @@ def build_evaluation_alert(effective_pressure: float, pressure_resistance: float
     ]
 
     if utilisation is not None:
-        children.append(dbc.Progress(
-            value=min(utilisation * 100, 100),
-            label=(f"{utilisation:.1%} of capacity" if utilisation < 10
-                   else 'over 999% of capacity'),
-            color=colour,
-            className='verdict-utilisation mb-2',
-            style={'height': '1.25rem'},
-        ))
+        # A fill-to-100% bar reads "nearly finished" in every progress bar ever
+        # built; here full means "at the limit". Labelling both ends of the
+        # range keeps the graphic from contradicting the verdict.
+        pct = min(max(utilisation * 100, 0), 100)
+        # A tiny resistance makes the ratio meaningless: 157.5 bar against
+        # 1e-5 MPa is 1,575,000,000%, which is noise, not information.
+        capacity_label = (f"{utilisation:.1%} of capacity" if utilisation < 10
+                          else 'over 999% of capacity')
+        children.append(html.Div([
+            html.Div(
+                html.Div(className='capacity-fill', style={'width': f'{pct:.1f}%'}),
+                className='capacity-track',
+            ),
+            html.Div([
+                html.Span('0'),
+                html.Span(capacity_label),
+                html.Span(f"{format_pressure(pressure_resistance, unit)} limit"),
+            ], className='capacity-scale'),
+        ], className='capacity-bar mb-2'))
 
     children.append(meta(f"Margin: {format_pressure(margin, unit)}"))
 

@@ -98,6 +98,17 @@ class TestEvaluationAlert:
         assert 'outside the RP-F101 acceptance limits' in text
         assert 'below 0.00 bar' not in text
 
+    def test_capacity_is_a_labelled_range_not_a_percentage_bar(self):
+        # A fill-to-100% bar reads "nearly finished"; full here means "at the
+        # limit", so both ends of the range are labelled and the Bootstrap
+        # progress bar is gone.
+        text = rendered(build_evaluation_alert(15.75, 17.172, 'bar'))
+        assert 'capacity-track' in text
+        assert 'capacity-scale' in text
+        assert '171.72 bar limit' in text
+        assert 'progress-bar' not in text
+        assert '91.7% of capacity' in text
+
 
 class TestVerdictEdgeCases:
     """The verdict card is what a reviewer reads to accept or reject a pipeline."""
