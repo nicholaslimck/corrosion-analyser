@@ -210,3 +210,24 @@ class TestAssess:
     def test_assessment_with_loading(self):
         pipe = assess(pipe_data(**{'Combined Stress': _input(200, 'MPa')}))
         assert pipe.properties.pressure_resistance > 0
+
+
+class TestAccuracyTypeFallback:
+    """Callers that predate the depth-unit/accuracy-type split sent no accuracy type.
+
+    They used to get it inferred from the depth unit, so a depth in mm meant
+    absolute accuracy; defaulting them to 'relative' would reinterpret their
+    accuracy silently.
+    """
+
+    def test_absent_accuracy_type_with_an_mm_depth_is_absolute(self):
+        inputs = pipe_data(**{'Defect Depth': _input(4.8, 'mm')})
+        inputs.pop('Sizing Accuracy Type')
+        pipe = build_pipe(inputs)
+        assert pipe.factors.inspection_method == 'absolute'
+
+    def test_absent_accuracy_type_with_a_relative_depth(self):
+        inputs = pipe_data()
+        inputs.pop('Sizing Accuracy Type')
+        pipe = build_pipe(inputs)
+        assert pipe.factors.inspection_method == 'relative'

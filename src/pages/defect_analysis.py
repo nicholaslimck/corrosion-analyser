@@ -438,8 +438,14 @@ def build_calculation_trace(report):
         ('Incidental/design ratio, γinc', f"{design['incidental_to_design_ratio']:.2f}", '§3.7.2.2'),
         ('De-rating, f_u,temp', f"{material['de_rating_mpa']:.1f} N/mm²", 'Figure 2-3'),
         ('Tensile strength, f_u', f"{material['f_u_mpa']:.2f} N/mm²", 'Table 2-1'),
-        ('Sizing accuracy, StD[d/t]', f"{assessment['standard_deviation']:.4f}",
-         'Tables 3-3 to 3-6'),
+        ('Safety class', str(assessment['safety_class']).title(), '§3.3'),
+        ('Inspection method', assessment['measurement_method'], '§3.3'),
+        ('Sizing accuracy',
+         f"{assessment['measurement_accuracy']:g} "
+         f"({'fraction of t' if assessment['measurement_method'] == 'relative' else 'mm'})",
+         '§3.3'),
+        ('Confidence level', f"{assessment['confidence_level']:.0%}", 'Table 3-3'),
+        ('StD[d/t], σd', f"{assessment['standard_deviation']:.4f}", 'Tables 3-3 to 3-6'),
         ('Partial safety factor, γm', f"{assessment['gamma_m']:.2f}", 'Table 3-2'),
         ('Partial safety factor, γd', f"{assessment['gamma_d']:.4f}", 'Tables 3-7, 3-8'),
         ('Fractile value, εd', f"{assessment['epsilon_d']:.4f}", 'Tables 3-7, 3-8'),
@@ -513,7 +519,8 @@ def update_input_units(depth_unit: str, accuracy_type: str):
     relative or absolute accuracy with either depth representation (3.3).
     """
     depth_label = 't' if depth_unit == 'relative' else 'mm'
-    accuracy_label = '' if accuracy_type == 'relative' else 'mm'
+    # A blank suffix made "0.1" look like 0.1 mm when it means 10% of t.
+    accuracy_label = 'fraction of t' if accuracy_type == 'relative' else 'mm'
     return depth_label, depth_label, accuracy_label
 
 
