@@ -71,8 +71,9 @@ class TestAnalyseCallback:
 
         assert error_open is True
         assert 'SMTS' in error
-        assert report is not None  # no_update sentinel, not a report dict
-        assert not isinstance(report, dict)
+        # A failed run must clear the store, otherwise the export buttons hand out
+        # the previous assessment's numbers.
+        assert report is None
 
 
 class TestDownloadCallbacks:
@@ -99,9 +100,9 @@ class TestDownloadCallbacks:
 
 class TestUnitCallback:
     @pytest.mark.parametrize('depth_unit,accuracy_type,expected', [
-        ('relative', 'relative', ('t', 't', '')),
+        ('relative', 'relative', ('t', 't', 'fraction of t')),
         ('relative', 'absolute', ('t', 't', 'mm')),
-        ('absolute', 'relative', ('mm', 'mm', '')),
+        ('absolute', 'relative', ('mm', 'mm', 'fraction of t')),
         ('absolute', 'absolute', ('mm', 'mm', 'mm')),
     ])
     def test_depth_and_accuracy_units_are_independent(self, depth_unit, accuracy_type, expected):
