@@ -277,7 +277,10 @@ class Pipe:
         if self.combined_defect is not None:
             defects.append(self.combined_defect)
 
-        max_defect_length = max(defect.length for defect in defects)
+        # The curve's domain has to cover every measurement, not just the primary
+        # one: estimate_remaining_life grows the *latest* defect, which may be the
+        # longer of the two, and a curve that stops short of it yields a silent None.
+        max_defect_length = max(defect.length for defect in (*self.defects, *defects))
         upper_length = max(_MINIMUM_CURVE_LENGTH, _CURVE_LENGTH_FACTOR * max_defect_length)
 
         for index, defect in enumerate(defects):
