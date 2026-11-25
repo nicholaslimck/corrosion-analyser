@@ -10,6 +10,7 @@ from loguru import logger
 
 from src.utils import models
 from src.utils.graphing import defect_plots, pipe_plots
+from src.utils.graphing.theme import GRAPH_CONFIG
 from src.utils.assessment import build_pipe
 from src.utils.report import build_report, filename, render_markdown
 from src.utils.layout import center_align_style, build_evaluation_alert, build_result_items
@@ -211,18 +212,21 @@ def layout():
             ),
             dbc.Row(
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_table_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_table_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, md=10
                 ),
                 justify='center'
             ),
             dbc.Row([
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_pipe_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
                 dbc.Col(
-                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph')), className='graph-card'),
+                    html.Div(dcc.Loading(dcc.Graph(id='single_defect_defect_cross_section_graph',
+                                                   config=GRAPH_CONFIG)), className='graph-card'),
                     xs=12, sm=10, md=5
                 ),
             ], justify='center'),

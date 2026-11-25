@@ -35,6 +35,12 @@ _LIGHT = dict(
 _PALETTES = {'dark': _DARK, 'light': _LIGHT}
 
 
+# The modebar is Plotly's own toolbar. On these three static illustrations it
+# costs eleven tab stops at 24x22 with a 1.44:1 focus ring, for tools that do
+# nothing here - the assessment is already exported as PDF, Markdown and JSON.
+GRAPH_CONFIG = {'displayModeBar': False, 'displaylogo': False}
+
+
 def get_palette(theme: str = 'dark') -> dict:
     return _PALETTES.get(theme, _DARK)
 
