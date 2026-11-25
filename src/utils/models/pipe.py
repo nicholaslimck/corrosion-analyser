@@ -372,8 +372,9 @@ class Pipe:
         if not self.properties.maximum_allowable_defect_depth:
             raise ValueError("Maximum allowable defect depth must be calculated before remaining life")
 
-        d_0 = self.defects[1].relative_depth
-        l_0 = self.defects[1].length
+        _, latest = self._chronological_pair()
+        d_0 = latest.relative_depth
+        l_0 = latest.length
 
         r_corr, r_corr_length = self.calculate_corrosion_rate()
 
@@ -413,6 +414,21 @@ class Pipe:
         self.properties.remaining_life = remaining_life
         return remaining_life
 
+    def _chronological_pair(self) -> tuple['Defect', 'Defect']:
+        """Return the two measurements ordered earliest first.
+
+        `defects` is kept in axial order because the §3.8.2 interaction maths
+        derives the separation from position. A corrosion rate, however, is a
+        change measured from the earlier inspection to the later one, so the pair
+        is ordered by timestamp here rather than by reordering the list.
+        Falls back to insertion order when either measurement carries no date.
+        """
+        pair = self.defects[:2]
+        if all(defect.measurement_timestamp is not None for defect in pair):
+            first, second = sorted(pair, key=lambda defect: defect.measurement_timestamp)
+            return first, second
+        return pair[0], pair[1]
+
     def calculate_corrosion_rate(self) -> tuple[float, float]:
         """
         Calculate the corrosion rate of the pipe based on the defects
@@ -423,17 +439,17 @@ class Pipe:
         if len(self.defects) < 2:
             raise ValueError("Multiple defects required to calculate corrosion rate")
 
-        # Get defect measurements for first defect
-        d_0 = self.defects[0].relative_depth
-        l_0 = self.defects[0].length
-        w_0 = self.defects[0].width
-        ts_0 = self.defects[0].measurement_timestamp
+        earlier, later = self._chronological_pair()
 
-        # Get defect measurements for second defect
-        d_1 = self.defects[1].relative_depth
-        l_1 = self.defects[1].length
-        w_1 = self.defects[1].width
-        ts_1 = self.defects[1].measurement_timestamp
+        d_0 = earlier.relative_depth
+        l_0 = earlier.length
+        w_0 = earlier.width
+        ts_0 = earlier.measurement_timestamp
+
+        d_1 = later.relative_depth
+        l_1 = later.length
+        w_1 = later.width
+        ts_1 = later.measurement_timestamp
 
         d_ts = ts_1 - ts_0
 
